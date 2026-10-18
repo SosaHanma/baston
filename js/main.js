@@ -4,6 +4,7 @@ import { store, cust, save, saveDecor, img, readPhoto } from './store.js';
 import { poll, pads, fightInput, menuInput, endFrame, setTyping } from './input.js';
 import { audioInit, sfx } from './audio.js';
 import { View } from './view.js';
+import { faceTexFor } from './ps2char.js';
 import { Fight, Fighter } from './game.js';
 import { cvs, drawFaceCanvas, realFace, realCatFace, photoBackdrop } from './textures.js';
 
@@ -106,10 +107,9 @@ function tileCanvas(def) {
   const c = cust(def.id), out = cvs(160, 160), g = out.getContext('2d');
   const bg = g.createLinearGradient(0, 0, 0, 160); bg.addColorStop(0, def.kind === 'cats' ? c.color : c.skin); bg.addColorStop(1, '#120e22');
   g.fillStyle = bg; g.fillRect(0, 0, 160, 160);
-  const fc = cvs(128, 128);
-  const fb = def.kind === 'cats' ? realCatFace('#c9a43a') : realFace(def.build === 'kid' ? 'kid' : 'adult', def.build === 'slim');
-  drawFaceCanvas(fc, img(c.photo, () => buildTiles()), c, fb);
-  g.drawImage(fc, 16, 6, 128, 128);
+  let fc;
+  if (def.kind === 'cats') { fc = cvs(128, 128); drawFaceCanvas(fc, img(c.photo, () => buildTiles()), c, realCatFace('#c9a43a')); g.drawImage(fc, 16, 6, 128, 128); }
+  else { fc = faceTexFor(def, c, img, () => buildTiles()); g.save(); g.beginPath(); g.ellipse(80, 80, 62, 76, 0, 0, TAU); g.clip(); g.drawImage(fc, 4, 2, 152, 160); if (!c.photo) { g.fillStyle = c.hairCol; g.beginPath(); g.ellipse(80, 22, 70, 42, 0, 0, TAU); g.fill(); } g.restore(); }
   if (def.kind === 'cats') { const f2 = cvs(128, 128); drawFaceCanvas(f2, img(c.photo2, () => buildTiles()), { zoom: c.zoom2, ox: c.ox2, oy: c.oy2 }, realCatFace('#9ccf4f')); g.drawImage(fc, -4, 20, 100, 100); g.drawImage(f2, 64, 20, 100, 100); }
   return out;
 }
@@ -304,9 +304,10 @@ function paintPreview(cv, def, c, two) {
   const g = cv.getContext('2d'), S = cv.width, r = S / 2;
   g.clearRect(0, 0, S, S); g.save(); g.beginPath(); g.arc(r, r, r - 4, 0, TAU); g.clip();
   g.fillStyle = def.kind === 'cats' ? (two ? c.color2 : c.color) : c.skin; g.fillRect(0, 0, S, S);
-  const fc = cvs(256, 256), crop = two ? { zoom: c.zoom2, ox: c.ox2, oy: c.oy2 } : c;
-  const fb = def.kind === 'cats' ? realCatFace(two ? '#9ccf4f' : '#c9a43a') : realFace(def.build === 'kid' ? 'kid' : 'adult', def.build === 'slim');
-  drawFaceCanvas(fc, img(two ? c.photo2 : c.photo, () => paintPreview(cv, def, c, two)), crop, fb);
+  let fc;
+  if (def.kind === 'cats') { fc = cvs(256, 256); const crop = two ? { zoom: c.zoom2, ox: c.ox2, oy: c.oy2 } : c;
+    drawFaceCanvas(fc, img(two ? c.photo2 : c.photo, () => paintPreview(cv, def, c, two)), crop, realCatFace(two ? '#9ccf4f' : '#c9a43a')); }
+  else fc = faceTexFor(def, c, img, () => paintPreview(cv, def, c, two), 256);
   g.drawImage(fc, 0, 0, S, S); g.restore();
   g.lineWidth = 6; g.strokeStyle = c.color; g.beginPath(); g.arc(r, r, r - 4, 0, TAU); g.stroke();
 }

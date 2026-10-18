@@ -1,7 +1,8 @@
 // Assemblage de la scène 3D, caméra et HUD
 import { Renderer, Node, geo, mat, m4 } from './gl.js';
 import { buildStage } from './stages.js';
-import { buildHuman, buildCats, poseHuman, animateCats, YAW } from './models.js';
+import { buildCats, poseHuman, animateCats, YAW } from './models.js';
+import { buildPS2Human } from './ps2char.js';
 import * as T from './textures.js';
 import { img, store } from './store.js';
 import { W } from './data.js';
@@ -51,8 +52,8 @@ export class View {
   setFighter(side, def, c, color) {
     if (this.models[side]) this.world.remove(this.models[side].root);
     const cc = color && color !== c.color ? { ...c, color } : c;
-    const rig = def.kind === 'cats' ? buildCats(def, cc, img) : buildHuman(def, cc, img);
-    rig.id = def.id; rig.def = def; this.models[side] = rig; this.world.add(rig.root);
+    const rig = def.kind === 'cats' ? buildCats(def, cc, img) : buildPS2Human(def, cc, img);
+    rig.id = def.id; rig.def = def; rig.photo = !!cc.photo; this.models[side] = rig; this.world.add(rig.root);
     return rig;
   }
   sync(side, f) {
@@ -139,7 +140,9 @@ export class View {
     const h = this.h; if (!rig) return;
     h.save(); h.beginPath(); h.arc(cx, cy, r, 0, TAU); h.clip();
     h.fillStyle = rig.kind === 'cats' ? rig.def && rgbStr(rig.m.a.fur.color) : rgbStr(rig.m.skin.color); h.fillRect(cx - r, cy - r, 2 * r, 2 * r);
-    h.translate(cx, cy); if (flip) h.scale(-1, 1); h.drawImage(rig.faceC, -r, -r, 2 * r, 2 * r); h.restore();
+    h.translate(cx, cy); if (flip) h.scale(-1, 1); h.drawImage(rig.faceC, -r, -r, 2 * r, 2 * r);
+    if (rig.kind === 'human' && rig.m.hair && !rig.photo) { h.fillStyle = rgbStr(rig.m.hair.color); h.beginPath(); h.ellipse(0, -r * .95, r * 1.1, r * .55, 0, 0, TAU); h.fill(); }
+    h.restore();
     h.lineWidth = 4; h.strokeStyle = ring; h.beginPath(); h.arc(cx, cy, r, 0, TAU); h.stroke();
     h.lineWidth = 2; h.strokeStyle = OUT; h.beginPath(); h.arc(cx, cy, r + 3, 0, TAU); h.stroke();
   }

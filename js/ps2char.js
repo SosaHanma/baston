@@ -193,13 +193,13 @@ function pelvisProfile(w, d, fem) {
 }
 export function buildPS2Human(def, c, img) {
   const B = BUILDS[def.build] || BUILDS.normal, w = B.w, d = B.d, fem = !!B.fem, H = HEAD[B.head];
-  const top = def.top || 'jacket', hair = def.hair || 'short';
+  const top = def.top || 'jacket', hair = def.hair || 'short', bottom = def.bottom || 'jeans', tee = top === 'tshirt', shorts = bottom === 'shorts';
   const m = {
-    jacket: mat({ color: c.color, tex: tx('jk' + top, () => wornCloth(top === 'jacket' ? 'jacket' : 'cloth', 21)), spec: .03, shin: 8 }),
+    jacket: mat({ color: c.color, tex: tx('jk' + top, () => wornCloth(top === 'jacket' ? 'jacket' : top === 'leather' ? 'leather' : 'cloth', 21)), spec: top === 'leather' ? .1 : .03, shin: 12 }),
     sleeve: mat({ color: c.color, tex: tx('sl', () => wornCloth('cloth', 23)), spec: .03, shin: 8 }),
     rib: mat({ color: c.color, tex: tx('rib', () => wornCloth('rib', 25)), spec: .02 }),
     pants: mat({ color: c.color2, tex: tx('pt', () => wornCloth('pants', 31)), spec: .03, shin: 8 }),
-    boot: mat({ color: c.shoe || '#3a2c22', tex: tx('lt', () => wornCloth('leather', 41)), spec: .12, shin: 18 }), sole: mat({ color: '#2a2622', spec: .02 }),
+    boot: mat({ color: def.shoe || c.shoe || '#3a2c22', tex: tx('lt', () => wornCloth('leather', 41)), spec: .12, shin: 18 }), sole: mat({ color: '#2a2622', spec: .02 }),
     skin: mat({ color: c.skin, tex: tx('sk', () => skinTex()), spec: .04, shin: 10 }),
     hair: mat({ color: c.hairCol, tex: tx('hr', () => hairTexPS2()), spec: .06, shin: 14, double: true }),
     tee: mat({ color: c.tee || '#5c5b4c', spec: .02 }),
@@ -216,7 +216,9 @@ export function buildPS2Human(def, c, img) {
   const torso = new Node(); hips.add(torso);
   torso.add(N(cg('jk' + w + d + fem, () => geo.lathe(jacketProfile(w, d, fem), 12)), m.jacket));
   torso.add(N(cg('col' + w, () => geo.lathe([[.73, .07, .078], [.69, .078, .09], [.65, .088, .11 * w], [.61, .095, .128 * w]], 12)), m.jacket));
-  for (const z of [-1, 1]) torso.add(N(cg('pk', () => geo.box(.018, .055, .075)), m.sleeve).at(.112 * d, .44, z * .085 * w).rot(0, 0, -.12));
+  if (top === 'jacket') for (const z of [-1, 1]) torso.add(N(cg('pk', () => geo.box(.018, .055, .075)), m.sleeve).at(.112 * d, .44, z * .085 * w).rot(0, 0, -.12));
+  if (top === 'hoodie') { torso.add(N(cg('hood' + w, () => geo.lathe([[.74, .02, .03], [.72, .07, .09], [.66, .1, .13 * w], [.6, .08, .12 * w], [.57, .03, .05]], 10)), m.jacket).at(-.06 * d, 0, 0).scl(.9, 1, 1));
+    torso.add(N(cg('pouch' + w, () => geo.box(.02, .1, .2 * w)), m.sleeve).at(.11 * d, .13, 0)); }
   torso.add(N(cg('neckP', () => geo.limb(.09, .056, .06, 10)), m.skin).at(0, .79, 0));
   // tête
   const head = new Node().at(0, .735 + H.ry * B.hs, 0); torso.add(head);
@@ -236,10 +238,12 @@ export function buildPS2Human(def, c, img) {
   // bras
   const arm = z => {
     const sh = new Node().at(0, .53, z * .205 * w * (fem ? .88 : 1)); torso.add(sh);
-    sh.add(N(cg('ua' + w, () => geo.limb(.29, .058 * w, .05 * w, 10)), m.sleeve));
+    if (tee) { sh.add(N(cg('uaS' + w, () => geo.limb(.29, .05 * w, .043 * w, 10)), m.skin)); sh.add(N(cg('slv' + w, () => geo.limb(.14, .064 * w, .058 * w, 10)), m.sleeve)); }
+    else sh.add(N(cg('ua' + w, () => geo.limb(.29, .058 * w, .05 * w, 10)), m.sleeve));
     const el = new Node().at(0, -.29, 0); sh.add(el);
-    el.add(N(cg('fa' + w, () => geo.limb(.25, .05 * w, .045 * w, 10)), m.sleeve));
-    el.add(N(cg('cuff' + w, () => geo.lathe([[-.2, .048 * w, .05 * w], [-.27, .046 * w, .048 * w]], 10)), m.rib));
+    if (tee) el.add(N(cg('faS' + w, () => geo.limb(.26, .043 * w, .034 * w, 10)), m.skin));
+    else { el.add(N(cg('fa' + w, () => geo.limb(.25, .05 * w, .045 * w, 10)), m.sleeve));
+      el.add(N(cg('cuff' + w, () => geo.lathe([[-.2, .048 * w, .05 * w], [-.27, .046 * w, .048 * w]], 10)), m.rib)); }
     const hand = new Node().at(0, -.28, 0); el.add(hand);
     hand.add(N(cg('palm', () => geo.box(.03, .085, .075)), m.skin).at(0, -.035, 0));
     hand.add(N(cg('fing', () => geo.box(.026, .065, .07)), m.skin).at(.01, -.098, 0).rot(0, 0, .3));
@@ -250,7 +254,8 @@ export function buildPS2Human(def, c, img) {
     const hp = new Node().at(0, -.06, z * .09 * w); hips.add(hp);
     hp.add(N(cg('th' + w, () => geo.limb(.43, .09 * w, .068 * w, 10)), m.pants));
     const kn = new Node().at(0, -.43, 0); hp.add(kn);
-    kn.add(N(cg('sh' + w, () => geo.limb(.4, .068 * w, .058 * w, 10)), m.pants));
+    kn.add(N(cg((shorts ? 'shS' : 'sh') + w, () => geo.limb(.4, shorts ? .06 * w : .068 * w, shorts ? .046 * w : .058 * w, 10)), shorts ? m.skin : m.pants));
+    if (shorts) { kn.add(N(cg('sock', () => geo.lathe([[-.3, .05, .05], [-.4, .052, .052]], 10)), m.sole)); }
     const ft = new Node().at(0, -.42, 0); kn.add(ft);
     ft.add(N(cg('shaft', () => geo.lathe([[.07, .056, .056], [.0, .06, .058], [-.04, .066, .062]], 10)), m.boot));
     ft.add(N(cg('boot', () => geo.box(.2, .085, .1)), m.boot).at(.04, -.045, 0));
@@ -264,4 +269,13 @@ export function buildPS2Human(def, c, img) {
   phone.add(N(cg('screen', () => geo.box(.026, .125, .06)), m.screen).at(.003, 0, 0));
   body.scl(def.scale || 1);
   return { kind: 'human', root, body, hips, torso, head, aF, aB, lF, lB, tail, phone, m, faceC, redrawFace, hr: H.ry, scale: def.scale || 1 };
+}
+
+// aperçu du visage (atelier, cases de sélection) : même texture que la tête du modèle
+export function faceTexFor(def, c, img, onload, size = 128) {
+  const B = BUILDS[def.build] || BUILDS.normal, fem = !!B.fem;
+  const cv = cvs(size, size);
+  const draw = () => headTexture(cv, img ? img(c.photo, () => { draw(); onload && onload(); }) : null, { zoom: c.zoom, ox: c.ox, oy: c.oy },
+    paintFace(c.skin, { stubble: !fem && !B.kid, fem, seed: def.id ? def.id.length : 7 }));
+  draw(); return cv;
 }

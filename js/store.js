@@ -28,6 +28,12 @@ export function cust(id) {
     ['color', 'color2', 'skin', 'hairCol'].forEach((k, i) => { if (c[k] && c[k] === OC[i]) delete c[k]; });
     c.v = 2;
   }
+  if (c.v === 2) { // palette PS2 ternie : on remplace les couleurs par défaut de la version précédente
+    const O2 = { moi: ['#2b2b31', '#3d5a86', '#c48f69', '#16100c'], frere: ['#6e1f24', '#25272d', '#b98060', '#120d0a'], petit: ['#3a6aa8', '#4d4339', '#cf9c76', '#22160f'],
+      soeur1: ['#4a3024', '#283650', '#d6a07c', '#24150d'], soeur2: ['#a85d77', '#2a2a30', '#d9a582', '#140c08'] }[id] || [];
+    ['color', 'color2', 'skin', 'hairCol'].forEach((k, i) => { if (c[k] === O2[i]) c[k] = d[k]; });
+    c.v = 3;
+  }
   for (const k in def) if (c[k] === undefined) c[k] = def[k];
   if (!POWERS[c.power]) c.power = d.power;
   return c;
