@@ -4,16 +4,16 @@ const KEY = 'baston3d-v1', KEY_DECOR = 'baston3d-decor';
 
 export const store = {
   chars: {},
-  opts: { diff: 'normal', gfx: 'vhs', time: 99, rounds: 2, sound: true, padSwap: false },
-  last: { p1: 'moi', p2: 'frere', stage: 'salon' },
+  opts: { diff: 'normal', gfx: 'ps2', time: 99, rounds: 2, sound: true, padSwap: false },
+  last: { p1: 'moi', p2: 'frere', stage: 'videoclub' },
   stagePhoto: null,
 };
 try {
   const s = JSON.parse(localStorage.getItem(KEY) || 'null');
   if (s) { Object.assign(store.opts, s.opts || {}); Object.assign(store.last, s.last || {}); store.chars = s.chars || {}; }
   store.stagePhoto = localStorage.getItem(KEY_DECOR);
-  if (store.opts.look !== 2) { store.opts.gfx = 'vhs'; store.opts.look = 2; }
-  if (!['vhs', 'ps1', 'ps2', 'hd'].includes(store.opts.gfx)) store.opts.gfx = 'vhs';
+  if (store.opts.look !== 3) { store.opts.gfx = 'ps2'; store.opts.look = 3; }
+  if (!['vhs', 'ps1', 'ps2', 'hd'].includes(store.opts.gfx)) store.opts.gfx = 'ps2';
 } catch (e) { }
 
 export function cust(id) {
@@ -22,6 +22,12 @@ export function cust(id) {
   const def = { name: d.name, color: d.color, color2: d.color2, skin: d.skin, hairCol: d.hairCol, power: d.power, photo: null, zoom: 1, ox: 0, oy: 0, photo2: null, zoom2: 1, ox2: 0, oy2: 0 };
   const OLD = { moi: 'Moi', frere: 'Frère', petit: 'Petit frère', soeur1: 'Sœur 1', soeur2: 'Sœur 2', chats: 'Les Chats' };
   if (c.name === OLD[id]) c.name = d.name;
+  if (c.v !== 2) { // anciennes couleurs vives par défaut -> nouvelles couleurs réalistes
+    const OC = { moi: ['#e8452c', '#1f2433', '#d9a27a', '#2a1d16'], frere: ['#2d6cdf', '#20242c', '#c98d63', '#1b1410'], petit: ['#34c46a', '#f2c94c', '#e0aa82', '#3a2618'],
+      soeur1: ['#d94fa3', '#2a2140', '#e3b08c', '#4a2a1a'], soeur2: ['#8b5cf6', '#f4f0ff', '#e8b996', '#20140e'], chats: ['#f2a65a', '#5c5470', '#f2a65a', '#5c5470'] }[id] || [];
+    ['color', 'color2', 'skin', 'hairCol'].forEach((k, i) => { if (c[k] && c[k] === OC[i]) delete c[k]; });
+    c.v = 2;
+  }
   for (const k in def) if (c[k] === undefined) c[k] = def[k];
   if (!POWERS[c.power]) c.power = d.power;
   return c;

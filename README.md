@@ -1,6 +1,6 @@
 # Baston de Famille
 
-Jeu de combat en 3D façon PS2, avec toute la famille.
+Jeu de combat en 3D façon PS2, avec toute la famille, dans des décors de nuit années 90 : le vidéoclub, le parking et les toilettes.
 
 **Jouer :** https://sosahanma.github.io/baston/
 

@@ -1,6 +1,6 @@
 // Modèles 3D low-poly des combattants (humains + duo de chats)
 import { Node, geo, mat } from './gl.js';
-import { cvs, drawFaceCanvas, cartoonHuman, cartoonCat } from './textures.js';
+import { cvs, drawFaceCanvas, realFace, realCatFace, cloth, hairTex, tabby } from './textures.js';
 import { MV } from './data.js';
 
 const GC = new Map();
@@ -8,73 +8,89 @@ const gg = (k, f) => GC.get(k) || (GC.set(k, f()), GC.get(k));
 const N = (g, m) => new Node(g, m);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-const BUILDS = { normal: { w: 1, hr: .2 }, big: { w: 1.2, hr: .2 }, slim: { w: .88, hr: .19 }, kid: { w: 1, hr: .25, kid: true } };
 export const YAW = .45;
 
 /* ------------------------------------------------------------------ Humains */
+const BUILDS = { normal: { w: 1, hr: .118 }, big: { w: 1.17, hr: .122 }, slim: { w: .9, hr: .112, fem: 1 }, kid: { w: .96, hr: .138, kid: 1 } };
+const TEX = {};
+const texOf = (k, f) => TEX[k] || (TEX[k] = f());
 export function buildHuman(def, c, img) {
-  const B = BUILDS[def.build] || BUILDS.normal, w = B.w, hr = B.hr;
+  const B = BUILDS[def.build] || BUILDS.normal, w = B.w, hr = B.hr, fem = !!B.fem;
+  const top = def.top || 'tshirt', bottom = def.bottom || 'jeans', shortSleeve = top === 'tshirt', shorts = bottom === 'shorts';
   const m = {
-    shirt: mat({ color: c.color }), pants: mat({ color: c.color2 }), skin: mat({ color: c.skin }), shoe: mat({ color: '#1a1622' }),
-    hair: mat({ color: c.hairCol, double: true }), belt: mat({ color: '#141018' }), phone: mat({ color: '#15121c' }), screen: mat({ color: '#e6f6ff', unlit: true }),
+    top: mat({ color: c.color, tex: texOf('c_' + top, () => cloth(top)) }), sleeve: mat({ color: c.color, tex: texOf('c_plain', () => cloth('plain')) }),
+    bot: mat({ color: c.color2, tex: texOf('c_' + bottom, () => cloth(bottom === 'shorts' ? 'jogging' : bottom)) }),
+    skin: mat({ color: c.skin }), hair: mat({ color: c.hairCol, tex: texOf('hair', hairTex), double: true }),
+    shoe: mat({ color: def.build === 'big' ? '#1d1d22' : fem ? '#3a2a22' : '#dcd8cf' }), sole: mat({ color: '#efece6' }), belt: mat({ color: '#1a1512' }),
+    phone: mat({ color: '#15121c' }), screen: mat({ color: '#e6f6ff', unlit: true }),
   };
   const faceC = cvs(128, 128);
   m.face = mat({ tex: faceC, transparent: true, depthWrite: true });
-  const redrawFace = () => drawFaceCanvas(faceC, img(c.photo, redrawFace), c, cartoonHuman(B.kid ? 'kid' : 'adult'));
+  const redrawFace = () => drawFaceCanvas(faceC, img(c.photo, redrawFace), c, realFace(B.kid ? 'kid' : 'adult', fem));
   redrawFace();
-
+  const sw = fem ? .9 : 1;
   const root = new Node(), body = new Node(); root.add(body);
   const hips = new Node(); body.add(hips);
-  hips.add(N(gg('pel' + w, () => geo.cyl(.15 * w, .14 * w, .17, 8)), m.pants).scl(1, 1, .75));
-  hips.add(N(gg('belt' + w, () => geo.cyl(.155 * w, .155 * w, .05, 8)), m.belt).at(0, .07, 0).scl(1, 1, .76));
+  hips.add(N(gg('pel' + w, () => geo.cyl(.155 * w, .15 * w, .2, 10)), m.bot).at(0, .03, 0).scl(1, 1, .62));
+  if (bottom === 'jeans') hips.add(N(gg('belt' + w, () => geo.cyl(.158 * w, .158 * w, .035, 10)), m.belt).at(0, .12, 0).scl(1, 1, .63));
   const torso = new Node(); hips.add(torso);
-  torso.add(N(gg('chest' + w, () => geo.cyl(.19 * w, .145 * w, .48, 8)), m.shirt).at(0, .32, 0).scl(1, 1, .62));
-  torso.add(N(gg('neck', () => geo.cyl(.05, .06, .12, 6)), m.skin).at(0, .58, 0));
-  const head = new Node().at(0, .6 + hr * .9, 0); torso.add(head);
-  head.add(N(gg('skull' + hr, () => geo.sphere(hr, 12, 10)), m.skin));
-  head.add(N(gg('face' + hr, () => geo.sphere(hr * 1.03, 12, 10, Math.PI - 1.0, 2.0, Math.PI / 2 - .95, 1.9)), m.face));
-  for (const z of [-1, 1]) head.add(N(gg('ear', () => geo.sphere(.045, 6, 5)), m.skin).at(-.02, -.01, z * hr * .97).scl(.6, 1, .5));
+  torso.add(N(gg('abd' + w + sw, () => geo.cyl(.142 * w * (fem ? .92 : 1), .152 * w, .22, 10)), m.top).at(0, .15, 0).scl(1, 1, .6));
+  torso.add(N(gg('chest' + w + sw, () => geo.cyl(.178 * w * sw, .142 * w * (fem ? .92 : 1), .3, 10)), m.top).at(0, .39, 0).scl(1, 1, .6));
+  for (const z of [-1, 1]) torso.add(N(gg('shb' + w, () => geo.sphere(.064 * w, 8, 6)), m.sleeve).at(0, .5, z * .165 * w * sw));
+  if (top === 'hoodie') torso.add(N(gg('hood', () => geo.sphere(.115, 8, 6)), m.sleeve).at(-.075, .55, 0).scl(.9, .55, 1.25));
+  if (top === 'jacket') torso.add(N(gg('collar', () => geo.cyl(.075, .1, .07, 8)), m.sleeve).at(0, .56, 0).scl(1, 1, .8));
+  torso.add(N(gg('neck', () => geo.cyl(.045, .053, .12, 8)), m.skin).at(0, .6, 0));
+  const head = new Node().at(0, .64 + hr * 1.08, 0); torso.add(head);
+  const hs = new Node().scl(.93, 1.17, .95); head.add(hs);
+  hs.add(N(gg('skull' + hr, () => geo.sphere(hr, 14, 10)), m.skin));
+  hs.add(N(gg('face' + hr, () => geo.sphere(hr * 1.025, 14, 10, Math.PI - 1.0, 2.0, Math.PI / 2 - .95, 1.9)), m.face));
+  for (const z of [-1, 1]) hs.add(N(gg('ear', () => geo.sphere(.03, 6, 5)), m.skin).at(-.012, -.005, z * hr * .97).scl(.55, 1, .45));
   let tail = null;
-  const cap = () => N(gg('cap' + hr, () => geo.sphere(hr * 1.08, 12, 8, 0, Math.PI * 2, 0, 1.35)), m.hair).rot(0, 0, .5);
-  if (def.hair === 'short' || def.hair === 'messy') {
-    head.add(cap());
-    if (def.hair === 'messy') for (let i = 0; i < 7; i++) {
-      const a = -1.4 + i * .45, sp = N(gg('spike', () => geo.cyl(0, .05, .13, 5)), m.hair);
-      sp.at(Math.sin(a) * hr * .85 - .04, Math.cos(a) * hr * .85 + .02, (i % 2 ? .06 : -.06)).rot(0, 0, -a * .9); head.add(sp);
-    }
+  const cap = (k, th, tilt) => N(gg('cap' + hr + k, () => geo.sphere(hr * k, 14, 8, 0, Math.PI * 2, 0, th)), m.hair).rot(0, 0, tilt);
+  if (def.hair === 'buzz') hs.add(cap(1.03, 1.35, .5));
+  else if (def.hair === 'short') { hs.add(cap(1.08, 1.25, .55)); hs.add(N(gg('vol' + hr, () => geo.sphere(hr * .85, 10, 6)), m.hair).at(-.01, hr * .45, 0).scl(1.05, .55, 1.08)); }
+  else if (def.hair === 'kid') {
+    hs.add(cap(1.09, 1.3, .45));
+    for (let i = 0; i < 6; i++) { const a = -1.2 + i * .45, sp = N(gg('kspike', () => geo.cyl(0, .03, .07, 5)), m.hair); sp.at(Math.sin(a) * hr * .9 - .01, Math.cos(a) * hr * .9 + .01, (i % 2 ? .03 : -.03)).rot(0, 0, -a * .9); hs.add(sp); }
   } else if (def.hair === 'long') {
-    head.add(cap());
-    head.add(N(gg('drape' + hr, () => geo.cyl(hr * 1.06, hr * 1.3, hr * 2.4, 10, true, Math.PI, Math.PI)), m.hair).at(-.01, -hr * .65, 0));
+    hs.add(cap(1.08, 1.3, .4));
+    hs.add(N(gg('drape' + hr, () => geo.cyl(hr * 1.06, hr * 1.3, hr * 3.4, 12, true, Math.PI * .92, Math.PI * 1.16)), m.hair).at(-.005, -hr * 1.3, 0));
+    for (const z of [-1, 1]) hs.add(N(gg('lock' + hr, () => geo.box(hr * .35, hr * 2.3, hr * .3)), m.hair).at(hr * .25, -hr * .6, z * hr * .95));
   } else if (def.hair === 'ponytail') {
-    head.add(cap());
-    head.add(N(gg('tie', () => geo.sphere(.05, 6, 5)), m.hair).at(-hr * .98, hr * .25, 0));
-    tail = new Node().at(-hr * 1.05, hr * .25, 0); head.add(tail);
-    tail.add(N(gg('pony', () => geo.cyl(.06, .025, .42, 6)), m.hair).at(0, -.2, 0));
+    hs.add(cap(1.07, 1.35, .45));
+    hs.add(N(gg('tie', () => geo.sphere(.035, 6, 5)), m.hair).at(-hr * .98, hr * .3, 0));
+    tail = new Node().at(-hr * 1.05, hr * .3, 0); hs.add(tail);
+    tail.add(N(gg('pony' + hr, () => geo.cyl(hr * .38, hr * .12, hr * 3, 6)), m.hair).at(0, -hr * 1.5, 0));
   }
   const arm = z => {
-    const sh = new Node().at(0, .5, z * .21 * w); torso.add(sh);
-    sh.add(N(gg('sh' + w, () => geo.sphere(.07 * w, 7, 6)), m.shirt));
-    sh.add(N(gg('up' + w, () => geo.cyl(.058 * w, .05 * w, .3, 7)), m.shirt).at(0, -.15, 0));
-    const el = new Node().at(0, -.3, 0); sh.add(el);
-    el.add(N(gg('elb' + w, () => geo.sphere(.05 * w, 6, 5)), m.skin));
-    el.add(N(gg('fore' + w, () => geo.cyl(.047 * w, .04 * w, .29, 7)), m.skin).at(0, -.145, 0));
-    const hand = N(gg('hand' + w, () => geo.sphere(.068 * w, 7, 6)), m.skin).at(0, -.31, 0); el.add(hand);
+    const sh = new Node().at(0, .5, z * .18 * w * sw); torso.add(sh);
+    sh.add(N(gg('up' + w, () => geo.cyl(.05 * w, .044 * w, .29, 8)), m.sleeve).at(0, -.145, 0));
+    const el = new Node().at(0, -.29, 0); sh.add(el);
+    const lower = shortSleeve ? m.skin : m.sleeve;
+    el.add(N(gg('elb' + w, () => geo.sphere(.044 * w, 6, 5)), lower));
+    el.add(N(gg('fore' + w, () => geo.cyl(.043 * w, .034 * w, .27, 8)), lower).at(0, -.135, 0));
+    const hand = new Node().at(0, -.28, 0); el.add(hand);
+    hand.add(N(gg('palm', () => geo.box(.04, .09, .075)), m.skin).at(0, -.03, 0));
+    hand.add(N(gg('fing', () => geo.box(.045, .055, .072)), m.skin).at(.012, -.085, 0).rot(0, 0, .35));
+    hand.add(N(gg('thumb', () => geo.box(.025, .05, .025)), m.skin).at(.025, -.03, .035));
     return { sh, el, hand };
   };
   const leg = z => {
-    const hp = new Node().at(0, 0, z * .09 * w); hips.add(hp);
-    hp.add(N(gg('thigh' + w, () => geo.cyl(.085 * w, .068 * w, .42, 7)), m.pants).at(0, -.21, 0));
-    const kn = new Node().at(0, -.42, 0); hp.add(kn);
-    kn.add(N(gg('knee' + w, () => geo.sphere(.066 * w, 6, 5)), m.pants));
-    kn.add(N(gg('shin' + w, () => geo.cyl(.066 * w, .052 * w, .42, 7)), m.pants).at(0, -.21, 0));
+    const hp = new Node().at(0, -.04, z * .088 * w); hips.add(hp);
+    hp.add(N(gg('thigh' + w, () => geo.cyl(.085 * w, .064 * w, .43, 8)), m.bot).at(0, -.215, 0));
+    const kn = new Node().at(0, -.43, 0); hp.add(kn);
+    const lo = shorts ? m.skin : m.bot;
+    kn.add(N(gg('knee' + w, () => geo.sphere(.06 * w, 6, 5)), lo));
+    kn.add(N(gg('shin' + w, () => geo.cyl(.06 * w, .046 * w, .42, 8)), lo).at(0, -.21, 0));
     const ft = new Node().at(0, -.42, 0); kn.add(ft);
-    ft.add(N(gg('shoe', () => geo.box(.23, .09, .12)), m.shoe).at(.05, -.03, 0));
+    ft.add(N(gg('shoeU', () => geo.box(.24, .085, .1)), m.shoe).at(.045, -.035, 0));
+    ft.add(N(gg('sole', () => geo.box(.26, .03, .108)), m.sole).at(.05, -.08, 0));
     return { hp, kn, ft };
   };
   const aB = arm(-1), lB = leg(-1), lF = leg(1), aF = arm(1);
-  const phone = new Node().at(.04, -.36, 0); aF.el.add(phone); phone.visible = false;
-  phone.add(N(gg('phone', () => geo.box(.03, .16, .09)), m.phone));
-  phone.add(N(gg('screen', () => geo.box(.035, .13, .07)), m.screen).at(.004, 0, 0));
+  const phone = new Node().at(.04, -.33, 0); aF.el.add(phone); phone.visible = false;
+  phone.add(N(gg('phone', () => geo.box(.025, .15, .075)), m.phone));
+  phone.add(N(gg('screen', () => geo.box(.03, .125, .06)), m.screen).at(.004, 0, 0));
   body.scl(def.scale);
   return { kind: 'human', root, body, hips, torso, head, aF, aB, lF, lB, tail, phone, m, faceC, redrawFace, hr, scale: def.scale };
 }
@@ -85,7 +101,7 @@ export function poseHuman(rig, p, f) {
   rig.aB.sh.r[2] = p.ba1 + p.lean; rig.aB.el.r[2] = p.ba2 - p.ba1;
   rig.lF.hp.r[2] = p.fl1; rig.lF.kn.r[2] = p.fl2 - p.fl1; rig.lF.ft.r[2] = -p.fl2;
   rig.lB.hp.r[2] = p.bl1; rig.lB.kn.r[2] = p.bl2 - p.bl1; rig.lB.ft.r[2] = -p.bl2;
-  rig.head.r[2] = p.lean * .55; rig.head.r[1] = -.4;
+  rig.head.r[2] = p.lean * .55; rig.head.r[1] = -.45;
   rig.aF.sh.r[0] = -.12; rig.aB.sh.r[0] = .12;
   if (rig.tail) rig.tail.r[2] = -.5 + Math.sin(f.t * .12) * .15 - (f.vx || 0) * f.face * .03;
   rig.phone.visible = f.move === 'selfie';
@@ -95,51 +111,54 @@ export function poseHuman(rig, p, f) {
 export function lowPoint(p, hr, ko) {
   const pt = (o, a, l) => [o[0] + Math.sin(a) * l, o[1] + Math.cos(a) * l];
   const hip = [0, 0], fk = pt(hip, p.fl1, 42), ff = pt(fk, p.fl2, 42), bk = pt(hip, p.bl1, 42), bf = pt(bk, p.bl2, 42);
-  let low = Math.max(ff[1], bf[1]) + 4;
+  let low = Math.max(ff[1], bf[1]) + 9;
   if (ko) {
     const neck = [Math.sin(p.lean) * 56, -Math.cos(p.lean) * 56], sh = neck;
     const fe = pt(sh, p.fa1, 30), fh = pt(fe, p.fa2, 29), be = pt(sh, p.ba1, 30), bh = pt(be, p.ba2, 29);
-    const hd = (60 + hr * 90), head = [Math.sin(p.lean) * hd, -Math.cos(p.lean) * hd];
-    low = Math.max(low, fh[1], bh[1], fk[1], bk[1], head[1] + hr * 100, 14);
+    const hd = (64 + hr * 105), head = [Math.sin(p.lean) * hd, -Math.cos(p.lean) * hd];
+    low = Math.max(low, fh[1], bh[1], fk[1], bk[1], head[1] + hr * 115, 12);
   }
   return low;
 }
 
 /* ------------------------------------------------------------------ Chats */
-function buildCat(col, faceC) {
-  const m = { fur: mat({ color: col }), belly: mat({ color: '#f6efe4' }), face: mat({ tex: faceC, transparent: true, depthWrite: true }), nose: mat({ color: '#f29bb0' }) };
-  const g = new Node();
-  const body = N(gg('catBody', () => geo.sphere(.2, 10, 8)), m.fur).at(0, .3, 0).scl(1.6, .9, .82); g.add(body);
-  g.add(N(gg('catChest', () => geo.sphere(.13, 8, 6)), m.belly).at(.22, .3, 0).scl(1, 1, .9));
-  const head = new Node().at(.36, .48, 0); g.add(head);
-  head.add(N(gg('catSkull', () => geo.sphere(.15, 10, 8)), m.fur));
-  head.add(N(gg('catFace', () => geo.sphere(.155, 10, 8, Math.PI - 1.0, 2.0, Math.PI / 2 - .9, 1.8)), m.face));
-  for (const z of [-1, 1]) head.add(N(gg('catEar', () => geo.cyl(0, .055, .11, 4)), m.fur).at(-.02, .13, z * .075).rot(z * .3, 0, .1));
+function buildCat(col, faceC, fat) {
+  const m = { fur: mat({ color: col, tex: texOf(fat ? 'tabby' : 'plainfur', () => tabby(fat)) }), belly: mat({ color: '#efe7da', tex: texOf('plainfur', () => tabby(false)) }),
+    face: mat({ tex: faceC, transparent: true, depthWrite: true }) };
+  const g = new Node(), fz = fat ? 1.3 : 1;
+  const body = N(gg('catBody' + fat, () => geo.sphere(.17, 12, 8)), m.fur).at(0, .28, 0).scl(1.75, fat ? .92 : .8, .72 * fz); g.add(body);
+  g.add(N(gg('catChest', () => geo.sphere(.1, 8, 6)), m.belly).at(.21, .29, 0).scl(1, 1.05, .9 * (fat ? 1.1 : 1)));
+  for (const z of [-1, 1]) g.add(N(gg('haunch' + fat, () => geo.sphere(.085 * (fat ? 1.15 : 1), 8, 6)), m.fur).at(-.19, .27, z * .055 * fz));
+  const head = new Node().at(.33, .43, 0); g.add(head);
+  head.add(N(gg('catSkull', () => geo.sphere(.095, 12, 9)), m.fur).scl(1.05, .92, 1.08));
+  head.add(N(gg('muzzle', () => geo.sphere(.045, 8, 6)), m.belly).at(.072, -.035, 0).scl(1, .8, 1.2));
+  head.add(N(gg('catFace', () => geo.sphere(.1, 12, 8, Math.PI - 1.0, 2.0, Math.PI / 2 - .85, 1.7)), m.face).scl(1.05, .92, 1.08));
+  for (const z of [-1, 1]) head.add(N(gg('catEar', () => geo.cyl(0, .042, .08, 3)), m.fur).at(-.015, .085, z * .052).rot(z * .25, z * .5, .1));
   const legs = [];
-  for (const [x, z] of [[.2, .09], [.2, -.09], [-.2, .09], [-.2, -.09]]) {
-    const lp = new Node().at(x, .27, z); g.add(lp);
-    lp.add(N(gg('catLeg', () => geo.cyl(.036, .03, .24, 6)), m.fur).at(0, -.12, 0));
-    lp.add(N(gg('catPaw', () => geo.sphere(.042, 6, 5)), m.belly).at(.01, -.25, 0));
+  for (const [x, z] of [[.19, .065], [.19, -.065], [-.19, .065], [-.19, -.065]]) {
+    const lp = new Node().at(x, .24, z * fz); g.add(lp);
+    lp.add(N(gg('catLeg', () => geo.cyl(.026, .021, .23, 6)), m.fur).at(0, -.115, 0));
+    lp.add(N(gg('catPaw', () => geo.sphere(.03, 6, 5)), m.belly).at(.008, -.232, 0).scl(1.3, .8, 1));
     legs.push(lp);
   }
   const tail = []; let prev = g;
-  for (let i = 0; i < 3; i++) {
-    const t = new Node().at(i ? 0 : -.3, i ? -.14 : .36, 0); prev.add(t);
-    t.add(N(gg('catTail', () => geo.cyl(.03, .024, .15, 6)), m.fur).at(0, -.07, 0)); tail.push(t); prev = t;
+  for (let i = 0; i < 5; i++) {
+    const t = new Node().at(i ? 0 : -.29, i ? -.085 : .31, 0); prev.add(t);
+    t.add(N(gg('catTail', () => geo.cyl(.022, .018, .09, 6)), m.fur).at(0, -.043, 0)); tail.push(t); prev = t;
   }
   return { g, body, head, legs, tail, m, o: { x: 0, y: 0, pitch: 0, roll: 0 } };
 }
 export function buildCats(def, c, img) {
   const fA = cvs(128, 128), fB = cvs(128, 128);
   const redrawFace = () => {
-    drawFaceCanvas(fA, img(c.photo, redrawFace), { zoom: c.zoom, ox: c.ox, oy: c.oy }, cartoonCat('#7ed957'));
-    drawFaceCanvas(fB, img(c.photo2, redrawFace), { zoom: c.zoom2, ox: c.ox2, oy: c.oy2 }, cartoonCat('#f2c94c'));
+    drawFaceCanvas(fA, img(c.photo, redrawFace), { zoom: c.zoom, ox: c.ox, oy: c.oy }, realCatFace('#c9a43a'));
+    drawFaceCanvas(fB, img(c.photo2, redrawFace), { zoom: c.zoom2, ox: c.ox2, oy: c.oy2 }, realCatFace('#9ccf4f'));
   };
   redrawFace();
   const root = new Node(), body = new Node(); root.add(body);
-  const A = buildCat(c.color, fA), Bc = buildCat(c.color2, fB);
+  const A = buildCat(c.color, fA, true), Bc = buildCat(c.color2, fB, false);
   A.base = [.16, 0, .2]; Bc.base = [-.4, 0, -.2];
-  A.g.scl(1.14); Bc.g.scl(.82); // Bouftiko est le plus gros, Poutine le plus petit
+  A.g.scl(1.15); Bc.g.scl(.85); // Bouftiko est le plus gros, Poutine le plus petit
   body.add(Bc.g, A.g);
   return { kind: 'cats', root, body, cats: [A, Bc], redrawFace, scale: 1, m: { a: A.m, b: Bc.m }, faceC: fA, faceC2: fB };
 }
@@ -180,6 +199,6 @@ export function animateCats(rig, f) {
     c.legs[2].r[2] = T.legB - o.sit * 1.2; c.legs[3].r[2] = -T.legB - o.sit * 1.2;
     c.head.r[2] = o.head - o.sit * .45; c.head.r[1] = -.55;
     c.tail[0].r[2] = -2.2 + o.tail * 1.6 + Math.sin(t * .09 + i * 2) * .25;
-    c.tail[1].r[2] = .4 + Math.sin(t * .11 + i) * .3 - o.tail * .3; c.tail[2].r[2] = .3 + Math.sin(t * .13 + i * 3) * .3;
+    for (let k = 1; k < c.tail.length; k++) c.tail[k].r[2] = .28 + Math.sin(t * (.1 + k * .015) + i * 2 + k) * .22 - o.tail * .18;
   });
 }

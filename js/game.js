@@ -14,7 +14,7 @@ export class Fighter {
     this.def = def; this.c = c; this.side = side; this.color = color || c.color;
     this.st = def.stats; this.cat = def.kind === 'cats';
     this.h = this.cat ? 64 : 172 * def.scale; this.wr = this.cat ? 36 : 27 * Math.sqrt(def.scale) + 2;
-    this.hr = this.cat ? .15 : ({ big: .2, slim: .19, kid: .25 }[def.build] || .2);
+    this.hr = this.cat ? .1 : ({ big: .122, slim: .112, kid: .138 }[def.build] || .118);
     this.hpMax = this.st.hp; this.wins = 0; this.meter = 0;
     this.reset();
   }

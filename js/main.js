@@ -5,7 +5,7 @@ import { poll, pads, fightInput, menuInput, endFrame, setTyping } from './input.
 import { audioInit, sfx } from './audio.js';
 import { View } from './view.js';
 import { Fight, Fighter } from './game.js';
-import { cvs, drawFaceCanvas, cartoonHuman, cartoonCat, photoBackdrop } from './textures.js';
+import { cvs, drawFaceCanvas, realFace, realCatFace, photoBackdrop } from './textures.js';
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const TAU = Math.PI * 2;
@@ -82,7 +82,7 @@ function openTitle() {
   showScreen('title'); show.dirty = true;
   const ids = CHARS.map(c => c.id).sort(() => Math.random() - .5);
   setShow(0, ids[0], ids[1]); setShow(1, ids[1], ids[0]); show.dirty = false;
-  view.setStage(['salon', 'jardin', 'paris'][Math.floor(Math.random() * 3)]);
+  view.setStage(['videoclub', 'parking', 'wc'][Math.floor(Math.random() * 3)]);
   $('#titleMenu').hidden = !started; $('#pressStart').hidden = started;
 }
 $('#title').addEventListener('click', e => { if (!started) { audioInit(); started = true; sfx('ok'); openTitle(); } });
@@ -107,10 +107,10 @@ function tileCanvas(def) {
   const bg = g.createLinearGradient(0, 0, 0, 160); bg.addColorStop(0, def.kind === 'cats' ? c.color : c.skin); bg.addColorStop(1, '#120e22');
   g.fillStyle = bg; g.fillRect(0, 0, 160, 160);
   const fc = cvs(128, 128);
-  const fb = def.kind === 'cats' ? cartoonCat() : cartoonHuman(def.build === 'kid' ? 'kid' : 'adult');
+  const fb = def.kind === 'cats' ? realCatFace('#c9a43a') : realFace(def.build === 'kid' ? 'kid' : 'adult', def.build === 'slim');
   drawFaceCanvas(fc, img(c.photo, () => buildTiles()), c, fb);
   g.drawImage(fc, 16, 6, 128, 128);
-  if (def.kind === 'cats') { const f2 = cvs(128, 128); drawFaceCanvas(f2, img(c.photo2, () => buildTiles()), { zoom: c.zoom2, ox: c.ox2, oy: c.oy2 }, cartoonCat('#f2c94c')); g.drawImage(fc, -4, 20, 100, 100); g.drawImage(f2, 64, 20, 100, 100); }
+  if (def.kind === 'cats') { const f2 = cvs(128, 128); drawFaceCanvas(f2, img(c.photo2, () => buildTiles()), { zoom: c.zoom2, ox: c.ox2, oy: c.oy2 }, realCatFace('#9ccf4f')); g.drawImage(fc, -4, 20, 100, 100); g.drawImage(f2, 64, 20, 100, 100); }
   return out;
 }
 function buildTiles() {
@@ -305,7 +305,7 @@ function paintPreview(cv, def, c, two) {
   g.clearRect(0, 0, S, S); g.save(); g.beginPath(); g.arc(r, r, r - 4, 0, TAU); g.clip();
   g.fillStyle = def.kind === 'cats' ? (two ? c.color2 : c.color) : c.skin; g.fillRect(0, 0, S, S);
   const fc = cvs(256, 256), crop = two ? { zoom: c.zoom2, ox: c.ox2, oy: c.oy2 } : c;
-  const fb = def.kind === 'cats' ? cartoonCat(two ? '#f2c94c' : '#7ed957') : cartoonHuman(def.build === 'kid' ? 'kid' : 'adult');
+  const fb = def.kind === 'cats' ? realCatFace(two ? '#9ccf4f' : '#c9a43a') : realFace(def.build === 'kid' ? 'kid' : 'adult', def.build === 'slim');
   drawFaceCanvas(fc, img(two ? c.photo2 : c.photo, () => paintPreview(cv, def, c, two)), crop, fb);
   g.drawImage(fc, 0, 0, S, S); g.restore();
   g.lineWidth = 6; g.strokeStyle = c.color; g.beginPath(); g.arc(r, r, r - 4, 0, TAU); g.stroke();

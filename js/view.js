@@ -105,7 +105,7 @@ export class View {
     const mid = clamp((x1 + x2) / 2, -2.6, 2.6), sep = Math.abs(x1 - x2);
     const dist = clamp(3.6 + sep * .82, 4.4, 8), hy = Math.max(-a.y, -b.y) / 100;
     let e = [mid * .9, 1.3 + dist * .05 + hy * .3, dist], t = [mid, .9 + hy * .35, 0], k = .12;
-    if (fight.cine) { const f = fight.cine.f, fx = X3(f.x), hh = f.h / 100; e = [fx + f.face * 1.3, .5 + hh * .7, 2.3]; t = [fx, hh * .62, 0]; k = .25; }
+    if (fight.cine) { const f = fight.cine.f, fx = X3(f.x), hh = f.h / 100, fy = -f.y / 100; e = [fx + f.face * 1.4, fy + hh * .8, 2.6 + hh * .3]; t = [fx, fy + hh * .72, 0]; k = .25; }
     if (fight.phase === 'over' || (fight.phase === 'roundEnd' && fight.pt < 150 && fight.winner)) { const f = fight.winner, fx = X3(f.x), hh = f.h / 100; e = [fx + f.face * 1.6, .6 + hh * .6, 3]; t = [fx, hh * .6, 0]; k = .05; }
     this.moveCam(e, t, k, fight.shake);
   }

@@ -4,17 +4,17 @@ export const GRAV = .85;
 
 // stats : hp, vitesse, dégâts, portée, saut
 export const CHARS = [
-  { id: 'moi', name: 'Hacéne', kind: 'human', build: 'normal', hair: 'short', scale: 1, color: '#e8452c', color2: '#1f2433', skin: '#d9a27a', hairCol: '#2a1d16',
+  { id: 'moi', name: 'Hacéne', kind: 'human', build: 'normal', hair: 'short', top: 'hoodie', bottom: 'jeans', scale: 1, color: '#2b2b31', color2: '#3d5a86', skin: '#c48f69', hairCol: '#16100c',
     power: 'dragon', proj: 'energy', projName: "Boule d'énergie", stats: { hp: 100, spd: 1, dmg: 1, reach: 1, jump: 1 }, tag: 'Équilibré' },
-  { id: 'frere', name: 'Anis', kind: 'human', build: 'big', hair: 'short', scale: 1.06, color: '#2d6cdf', color2: '#20242c', skin: '#c98d63', hairCol: '#1b1410',
+  { id: 'frere', name: 'Anis', kind: 'human', build: 'big', hair: 'buzz', top: 'tshirt', bottom: 'jogging', scale: 1.05, color: '#6e1f24', color2: '#25272d', skin: '#b98060', hairCol: '#120d0a',
     power: 'taureau', proj: 'ballon', projName: 'Tir de ballon', stats: { hp: 112, spd: .9, dmg: 1.12, reach: 1.05, jump: .94 }, tag: 'Costaud' },
-  { id: 'petit', name: 'Manil', kind: 'human', build: 'kid', hair: 'messy', scale: .72, color: '#34c46a', color2: '#f2c94c', skin: '#e0aa82', hairCol: '#3a2618',
+  { id: 'petit', name: 'Manil', kind: 'human', build: 'kid', hair: 'kid', top: 'tshirt', bottom: 'shorts', scale: .72, color: '#3a6aa8', color2: '#4d4339', skin: '#cf9c76', hairCol: '#22160f',
     power: 'jouets', proj: 'ballon', projName: 'Ballon', stats: { hp: 88, spd: 1.16, dmg: .86, reach: .8, jump: 1.08 }, tag: 'Petit et rapide' },
-  { id: 'soeur1', name: 'Raja', kind: 'human', build: 'slim', hair: 'long', scale: .93, color: '#d94fa3', color2: '#2a2140', skin: '#e3b08c', hairCol: '#4a2a1a',
+  { id: 'soeur1', name: 'Raja', kind: 'human', build: 'slim', hair: 'long', top: 'jacket', bottom: 'jeans', scale: .94, color: '#4a3024', color2: '#283650', skin: '#d6a07c', hairCol: '#24150d',
     power: 'selfie', proj: 'energy', projName: "Boule d'énergie", stats: { hp: 96, spd: 1.06, dmg: .98, reach: .96, jump: 1.04 }, tag: 'Technique' },
-  { id: 'soeur2', name: 'Wafa', kind: 'human', build: 'slim', hair: 'ponytail', scale: .91, color: '#8b5cf6', color2: '#f4f0ff', skin: '#e8b996', hairCol: '#20140e',
+  { id: 'soeur2', name: 'Wafa', kind: 'human', build: 'slim', hair: 'ponytail', top: 'hoodie', bottom: 'jogging', scale: .92, color: '#a85d77', color2: '#2a2a30', skin: '#d9a582', hairCol: '#140c08',
     power: 'tornade', proj: 'energy', projName: "Boule d'énergie", stats: { hp: 96, spd: 1.08, dmg: .96, reach: .96, jump: 1.06 }, tag: 'Acrobate' },
-  { id: 'chats', name: 'Bouftiko & Poutine', catNames: ['Bouftiko', 'Poutine'], kind: 'cats', scale: 1, color: '#f2a65a', color2: '#5c5470', skin: '#f2a65a', hairCol: '#5c5470',
+  { id: 'chats', name: 'Bouftiko & Poutine', catNames: ['Bouftiko', 'Poutine'], kind: 'cats', scale: 1, color: '#c97b3a', color2: '#7d7b80', skin: '#c97b3a', hairCol: '#7d7b80',
     power: 'griffes', proj: 'poils', projName: 'Boule de poils', stats: { hp: 90, spd: 1.22, dmg: .9, reach: .78, jump: 1.15 }, tag: 'Duo de chats' },
 ];
 
@@ -76,8 +76,8 @@ export const POSE = {
 };
 
 export const STAGES = [
-  { id: 'salon', name: 'Le salon' },
-  { id: 'jardin', name: 'Le jardin' },
-  { id: 'paris', name: 'Toits de Paris' },
+  { id: 'videoclub', name: 'Le vidéoclub' },
+  { id: 'parking', name: 'Le parking' },
+  { id: 'wc', name: 'Les toilettes' },
   { id: 'photo', name: 'Ta photo' },
 ];
