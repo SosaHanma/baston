@@ -123,8 +123,11 @@ export const geo = {
     }
     return G(P, N, U, I);
   },
-  plane(w, h, ru = 1, rv = 1) {
-    return G([-w / 2, -h / 2, 0, w / 2, -h / 2, 0, w / 2, h / 2, 0, -w / 2, h / 2, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1], [0, 0, ru, 0, ru, rv, 0, rv], [0, 1, 2, 0, 2, 3]);
+  plane(w, h, ru = 1, rv = 1, seg = 1) {
+    const P = [], N = [], U = [], I = [];
+    for (let j = 0; j <= seg; j++) for (let i = 0; i <= seg; i++) { const u = i / seg, v = j / seg; P.push(-w / 2 + u * w, -h / 2 + v * h, 0); N.push(0, 0, 1); U.push(u * ru, v * rv); }
+    for (let j = 0; j < seg; j++) for (let i = 0; i < seg; i++) { const a = j * (seg + 1) + i, b = a + 1, c = a + seg + 2, d = a + seg + 1; I.push(a, b, c, a, c, d); }
+    return G(P, N, U, I);
   },
   disc(r, seg = 16) {
     const P = [0, 0, 0], N = [0, 0, 1], U = [.5, .5], I = [];
@@ -174,23 +177,36 @@ export function setColor(m, h) { m.color = hexRGB(h); }
 
 /* ---------------- Rendu ---------------- */
 const VS = `attribute vec3 aPos;attribute vec3 aNor;attribute vec2 aUv;
-uniform mat4 uModel,uVP;uniform mat3 uNM;uniform vec3 uLDir,uLCol,uSky,uGround,uPPos,uPCol,uEye;uniform float uPRange,uUnlit;
-varying vec2 vUv;varying vec3 vLight;varying float vDepth;
+uniform mat4 uModel,uVP;uniform mat3 uNM;uniform vec3 uLDir,uLCol,uSky,uGround,uPPos,uPCol,uEye;uniform float uPRange,uUnlit;uniform vec2 uSnap;
+varying vec2 vUv;varying vec3 vLight;varying float vDepth;varying vec3 vUvw;
 void main(){vec4 wp=uModel*vec4(aPos,1.);vec3 n=normalize(uNM*aNor);
 vec3 L=mix(uGround,uSky,n.y*.5+.5)+uLCol*max(dot(n,-uLDir),0.);
 if(uPRange>0.){vec3 pl=uPPos-wp.xyz;float d=length(pl);float at=clamp(1.-d/uPRange,0.,1.);L+=uPCol*max(dot(n,pl/max(d,.001)),0.)*at*at;}
-vLight=mix(L,vec3(1.),uUnlit);vUv=aUv;vDepth=distance(wp.xyz,uEye);gl_Position=uVP*wp;}`;
-const FS = `precision mediump float;uniform sampler2D uTex;uniform float uUseTex,uAlpha,uFogOn;uniform vec3 uColor,uFogCol;uniform vec2 uFog;
-varying vec2 vUv;varying vec3 vLight;varying float vDepth;
-void main(){vec4 t=uUseTex>.5?texture2D(uTex,vUv):vec4(1.);vec3 c=uColor*t.rgb*vLight;float a=t.a*uAlpha;if(a<.03)discard;
+vLight=mix(L,vec3(1.),uUnlit);vUv=aUv;vDepth=distance(wp.xyz,uEye);vec4 p=uVP*wp;
+if(uSnap.x>0.){p.xy=floor(p.xy/p.w*uSnap+.5)/uSnap*p.w;}vUvw=vec3(aUv*p.w,p.w);gl_Position=p;}`;
+const FS = `precision mediump float;uniform sampler2D uTex;uniform float uUseTex,uAlpha,uFogOn,uAffine;uniform vec3 uColor,uFogCol;uniform vec2 uFog;
+varying vec2 vUv;varying vec3 vLight;varying float vDepth;varying vec3 vUvw;
+void main(){vec2 uv=uAffine>.5?vUvw.xy/vUvw.z:vUv;vec4 t=uUseTex>.5?texture2D(uTex,uv):vec4(1.);vec3 c=uColor*t.rgb*vLight;float a=t.a*uAlpha;if(a<.03)discard;
 float f=uFogOn*clamp((vDepth-uFog.x)/(uFog.y-uFog.x),0.,1.);gl_FragColor=vec4(mix(c,uFogCol,f),a);}`;
 const PVS = `attribute vec2 aP;varying vec2 vUv;void main(){vUv=aP*.5+.5;gl_Position=vec4(aP,0.,1.);}`;
-const PFS = `precision mediump float;uniform sampler2D uT;uniform float uDither,uLevels;uniform vec2 uRes;varying vec2 vUv;
+const PFS = `precision mediump float;uniform sampler2D uT;uniform float uDither,uLevels,uVHS,uTime;uniform vec2 uRes;varying vec2 vUv;
 float b2(vec2 a){a=floor(a);return fract(dot(a,vec2(.5,a.y*.75)));}
 float b4(vec2 a){return b2(.5*a)*.25+b2(a);}
-void main(){vec3 c=texture2D(uT,vUv).rgb;
-if(uDither>0.){vec2 px=floor(vUv*uRes);c+=(b4(px)-.5)*uDither/uLevels;c=floor(c*uLevels+.5)/uLevels;}
-vec2 q=vUv-.5;c*=1.-dot(q,q)*.45;gl_FragColor=vec4(c,1.);}`;
+float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+void main(){vec2 uv=vUv;vec3 c;
+if(uVHS>0.){
+ float trk=step(.975,fract(uv.y*.6-uTime*.11));
+ uv.x+=sin(uv.y*160.+uTime*5.)*.0007+trk*.006*sin(uTime*37.+uv.y*90.);
+ float ca=.0022+trk*.004,px=1.6/uRes.x;
+ c.r=texture2D(uT,uv+vec2(ca,0.)).r;c.g=texture2D(uT,uv).g;c.b=texture2D(uT,uv-vec2(ca,0.)).b;
+ vec3 bl=(texture2D(uT,uv+vec2(px,0.)).rgb+texture2D(uT,uv-vec2(px,0.)).rgb+texture2D(uT,uv-vec2(px*2.,0.)).rgb)/3.;
+ c=mix(c,bl,.35);
+ float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,.8)*vec3(1.05,1.0,.92);
+ c*=.92+.08*sin(gl_FragCoord.y*1.7);
+ c+=(hash(gl_FragCoord.xy+fract(uTime)*91.)-.5)*.07+trk*.12*hash(vec2(uv.y*300.,uTime));
+}else c=texture2D(uT,uv).rgb;
+if(uDither>0.){vec2 pp=floor(vUv*uRes);c+=(b4(pp)-.5)*uDither/uLevels;c=floor(c*uLevels+.5)/uLevels;}
+vec2 q=vUv-.5;c*=1.-dot(q,q)*(uVHS>0.?.9:.45);gl_FragColor=vec4(c,1.);}`;
 
 export class Renderer {
   constructor(canvas) {
@@ -200,14 +216,14 @@ export class Renderer {
     this.prog = this.program(VS, FS);
     this.post = this.program(PVS, PFS);
     const p = this.prog; this.u = {};
-    for (const n of ['uModel', 'uVP', 'uNM', 'uLDir', 'uLCol', 'uSky', 'uGround', 'uPPos', 'uPCol', 'uEye', 'uPRange', 'uUnlit', 'uTex', 'uUseTex', 'uAlpha', 'uFogOn', 'uColor', 'uFogCol', 'uFog']) this.u[n] = gl.getUniformLocation(p, n);
+    for (const n of ['uModel', 'uVP', 'uNM', 'uLDir', 'uLCol', 'uSky', 'uGround', 'uPPos', 'uPCol', 'uEye', 'uPRange', 'uUnlit', 'uTex', 'uUseTex', 'uAlpha', 'uFogOn', 'uColor', 'uFogCol', 'uFog', 'uSnap', 'uAffine']) this.u[n] = gl.getUniformLocation(p, n);
     this.a = { pos: gl.getAttribLocation(p, 'aPos'), nor: gl.getAttribLocation(p, 'aNor'), uv: gl.getAttribLocation(p, 'aUv') };
-    this.pu = { uT: gl.getUniformLocation(this.post, 'uT'), uDither: gl.getUniformLocation(this.post, 'uDither'), uLevels: gl.getUniformLocation(this.post, 'uLevels'), uRes: gl.getUniformLocation(this.post, 'uRes') };
+    this.pu = { uT: gl.getUniformLocation(this.post, 'uT'), uDither: gl.getUniformLocation(this.post, 'uDither'), uLevels: gl.getUniformLocation(this.post, 'uLevels'), uRes: gl.getUniformLocation(this.post, 'uRes'), uVHS: gl.getUniformLocation(this.post, 'uVHS'), uTime: gl.getUniformLocation(this.post, 'uTime') };
     this.quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     this.white = this.texFromPixels(new Uint8Array([255, 255, 255, 255]), 1, 1);
     this.meshCache = new Map(); this.texCache = new WeakMap();
     this.vp = new Float32Array(16); this.tmp = new Float32Array(16); this.nm = new Float32Array(9);
-    this.fbo = null; this.iw = 0; this.ih = 0; this.dither = 1;
+    this.fbo = null; this.iw = 0; this.ih = 0; this.dither = 1; this.vhs = 0; this.snap = 0; this.affine = 0; this.nearest = false; this.upNearest = false;
   }
   program(vs, fs) {
     const gl = this.gl, mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
@@ -236,7 +252,8 @@ export class Renderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     const pot = (c.width & (c.width - 1)) === 0 && (c.height & (c.height - 1)) === 0;
-    if (pot && c._repeat) { gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); }
+    t._mip = false;
+    if (pot && c._repeat) { t._mip = true; gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); }
     else { gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); }
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, c._nearest ? gl.NEAREST : gl.LINEAR);
     this.texCache.set(c, { t, v: c._v || 0 }); return t;
@@ -272,6 +289,7 @@ export class Renderer {
     gl.uniform3fv(u.uEye, cam.eye); gl.uniform3fv(u.uFogCol, env.fogCol); gl.uniform2f(u.uFog, env.fog[0], env.fog[1]);
     if (env.point) { gl.uniform3fv(u.uPPos, env.point.pos); gl.uniform3fv(u.uPCol, env.point.col); gl.uniform1f(u.uPRange, env.point.range); } else gl.uniform1f(u.uPRange, 0);
     gl.uniform1i(u.uTex, 0); gl.activeTexture(gl.TEXTURE0);
+    gl.uniform2f(u.uSnap, this.snap ? this.iw / 2 : 0, this.snap ? this.ih / 2 : 0); gl.uniform1f(u.uAffine, this.affine);
     const opaque = [], trans = [];
     for (const n of items) (n.mat.transparent ? trans : opaque).push(n);
     const e = cam.eye;
@@ -290,6 +308,8 @@ export class Renderer {
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
     gl.useProgram(this.post);
     gl.bindTexture(gl.TEXTURE_2D, this.ft); gl.uniform1i(this.pu.uT, 0);
+    const ff = this.upNearest ? gl.NEAREST : gl.LINEAR; gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, ff); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, ff);
+    gl.uniform1f(this.pu.uVHS, this.vhs); gl.uniform1f(this.pu.uTime, performance.now() / 1000 % 1000);
     gl.uniform1f(this.pu.uDither, this.dither); gl.uniform1f(this.pu.uLevels, 31); gl.uniform2f(this.pu.uRes, this.iw, this.ih);
     const ap = gl.getAttribLocation(this.post, 'aP');
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quad); gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap, 2, gl.FLOAT, false, 0, 0);
@@ -311,7 +331,11 @@ export class Renderer {
     gl.uniformMatrix4fv(u.uModel, false, w); gl.uniformMatrix3fv(u.uNM, false, this.nm);
     if (mt.double) gl.disable(gl.CULL_FACE); else { gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); gl.frontFace(det < 0 ? gl.CW : gl.CCW); }
     gl.uniform3fv(u.uColor, mt.color); gl.uniform1f(u.uAlpha, mt.alpha); gl.uniform1f(u.uUnlit, mt.unlit ? 1 : 0); gl.uniform1f(u.uFogOn, mt.fog ? 1 : 0);
-    if (mt.tex) { gl.bindTexture(gl.TEXTURE_2D, this.tex(mt.tex)); gl.uniform1f(u.uUseTex, 1); } else { gl.bindTexture(gl.TEXTURE_2D, this.white); gl.uniform1f(u.uUseTex, 0); }
+    if (mt.tex) {
+      const t = this.tex(mt.tex); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1f(u.uUseTex, 1);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, this.nearest ? gl.NEAREST : t._mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this.nearest ? gl.NEAREST : gl.LINEAR);
+    } else { gl.bindTexture(gl.TEXTURE_2D, this.white); gl.uniform1f(u.uUseTex, 0); }
     gl.bindBuffer(gl.ARRAY_BUFFER, m.pos); gl.enableVertexAttribArray(a.pos); gl.vertexAttribPointer(a.pos, 3, gl.FLOAT, false, 0, 0);
     if (a.nor >= 0) { gl.bindBuffer(gl.ARRAY_BUFFER, m.nor); gl.enableVertexAttribArray(a.nor); gl.vertexAttribPointer(a.nor, 3, gl.FLOAT, false, 0, 0); }
     if (a.uv >= 0) { gl.bindBuffer(gl.ARRAY_BUFFER, m.uv); gl.enableVertexAttribArray(a.uv); gl.vertexAttribPointer(a.uv, 2, gl.FLOAT, false, 0, 0); }

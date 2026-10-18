@@ -4,7 +4,7 @@ const KEY = 'baston3d-v1', KEY_DECOR = 'baston3d-decor';
 
 export const store = {
   chars: {},
-  opts: { diff: 'normal', gfx: 'ps2', time: 99, rounds: 2, sound: true, padSwap: false },
+  opts: { diff: 'normal', gfx: 'vhs', time: 99, rounds: 2, sound: true, padSwap: false },
   last: { p1: 'moi', p2: 'frere', stage: 'salon' },
   stagePhoto: null,
 };
@@ -12,6 +12,8 @@ try {
   const s = JSON.parse(localStorage.getItem(KEY) || 'null');
   if (s) { Object.assign(store.opts, s.opts || {}); Object.assign(store.last, s.last || {}); store.chars = s.chars || {}; }
   store.stagePhoto = localStorage.getItem(KEY_DECOR);
+  if (store.opts.look !== 2) { store.opts.gfx = 'vhs'; store.opts.look = 2; }
+  if (!['vhs', 'ps1', 'ps2', 'hd'].includes(store.opts.gfx)) store.opts.gfx = 'vhs';
 } catch (e) { }
 
 export function cust(id) {

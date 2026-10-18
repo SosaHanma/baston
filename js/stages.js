@@ -10,7 +10,7 @@ function sky(root, tex, r = 60) {
   root.add(s); return s;
 }
 function floor(root, tex, w, d, rep, color = '#ffffff') {
-  const f = N(geo.plane(w, d, rep * w / d, rep), mat({ tex, color })).rot(-Math.PI / 2, 0, 0); root.add(f); return f;
+  const f = N(geo.plane(w, d, rep * w / d, rep, 16), mat({ tex, color })).rot(-Math.PI / 2, 0, 0); root.add(f); return f;
 }
 function env(o) {
   return { clear: hexRGB(o.clear), fogCol: hexRGB(o.fog), fog: o.fogR || [10, 45], ldir: norm(o.ldir || [-.4, -1, -.5]), lcol: hexRGB(o.lcol || '#bbbbbb'),
@@ -21,8 +21,8 @@ function norm(v) { const l = Math.hypot(...v); return v.map(x => x / l); }
 function salon() {
   const r = new Node(), wood = mat({ color: '#704a35' }), wall = mat({ tex: T.wallpaper() }), white = mat({ color: '#efe3cf' });
   floor(r, T.planks(), 26, 14, 5);
-  const wl = N(geo.plane(26, 7, 6, 1.6), wall).at(0, 3.5, -4.6); r.add(wl);
-  for (const s of [-1, 1]) r.add(N(geo.plane(12, 7, 3, 1.6), wall).at(s * 9.5, 3.5, 1.4).rot(0, -s * Math.PI / 2, 0));
+  const wl = N(geo.plane(26, 7, 6, 1.6, 10), wall).at(0, 3.5, -4.6); r.add(wl);
+  for (const s of [-1, 1]) r.add(N(geo.plane(12, 7, 3, 1.6, 6), wall).at(s * 9.5, 3.5, 1.4).rot(0, -s * Math.PI / 2, 0));
   r.add(box(26, .9, .08, wood, 0, 0, -4.55));
   r.add(N(geo.disc(1, 24), mat({ tex: T.rug() })).rot(-Math.PI / 2, 0, 0).at(0, .01, -.2).scl(4.2, 1.5, 1));
   // fenêtre + rideaux
@@ -57,7 +57,7 @@ function jardin() {
   sky(r, T.skyGradient([[0, '#3a8fe8'], [.55, '#8fd0ff'], [1, '#d8f0ff']]));
   const sun = N(geo.plane(9, 9), mat({ tex: T.glow('255,250,210'), additive: true, unlit: true, fog: false })).at(18, 22, -48); sun.billboard = true; r.add(sun);
   floor(r, T.grass(), 80, 40, 12);
-  r.add(N(geo.plane(26, 1.6), mat({ color: '#c8b48a' })).rot(-Math.PI / 2, 0, 0).at(0, .01, 2.6));
+  r.add(N(geo.plane(26, 1.6, 1, 1, 8), mat({ color: '#c8b48a' })).rot(-Math.PI / 2, 0, 0).at(0, .01, 2.6));
   // maison
   const wallM = mat({ tex: T.houseWall() }), roofM = mat({ color: '#a84a32' }), sh = mat({ tex: T.shutters() });
   r.add(box(14, 5, 6, wallM, -1, 0, -14));
@@ -120,7 +120,7 @@ function paris() {
 function photo(img) {
   const r = new Node();
   floor(r, T.planks(), 30, 14, 4, '#9a8a80');
-  r.add(N(geo.plane(22, 11), mat({ tex: T.photoBackdrop(img), unlit: true, fog: false })).at(0, 4.6, -7));
+  r.add(N(geo.plane(22, 11, 1, 1, 8), mat({ tex: T.photoBackdrop(img), unlit: true, fog: false })).at(0, 4.6, -7));
   return { root: r, env: env({ clear: '#1a1626', fog: '#1a1626', fogR: [30, 60], sky: '#c9c0d8', ground: '#4a4050', lcol: '#cfc6b8' }), bounds: 10 };
 }
 

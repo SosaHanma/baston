@@ -24,16 +24,23 @@ export class View {
     this.stageId = null; this.resize();
   }
   resize() {
-    const r = this.c3.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
-    const g = store.opts.gfx;
-    let iw, ih;
-    if (g === 'hd') { iw = Math.max(320, Math.round(r.width * dpr)); ih = Math.round(iw * 9 / 16); }
-    else if (g === 'pixel') { iw = 384; ih = 216; }
-    else { iw = 640; ih = 360; }
-    this.c3.width = g === 'pixel' ? iw : Math.max(iw, Math.round(r.width * dpr)); this.c3.height = Math.round(this.c3.width * 9 / 16);
-    this.c3.style.imageRendering = g === 'pixel' ? 'pixelated' : 'auto';
-    this.R.setInternal(iw, ih); this.R.dither = g === 'hd' ? 0 : 1;
+    const r = this.c3.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1), g = store.opts.gfx, R = this.R;
+    const cw = Math.max(640, Math.round(r.width * dpr));
+    this.c3.width = cw; this.c3.height = Math.round(cw * 9 / 16); this.c3.style.imageRendering = 'auto';
+    const retro = g === 'vhs' || g === 'ps1';
+    if (g === 'hd') R.setInternal(cw, Math.round(cw * 9 / 16)); else if (retro) R.setInternal(320, 180); else R.setInternal(640, 360);
+    R.dither = g === 'hd' ? 0 : 1; R.vhs = g === 'vhs' ? 1 : 0; R.snap = retro ? 1 : 0; R.affine = retro ? 1 : 0;
+    R.nearest = retro; R.upNearest = g === 'ps1';
     this.hud.width = Math.round(Math.max(HW, r.width * dpr)); this.hud.height = Math.round(this.hud.width * 9 / 16);
+  }
+  // incrustation façon magnétoscope
+  osd(fightMode) {
+    if (store.opts.gfx !== 'vhs') return;
+    const h = this.h, t = performance.now() / 1000, mm = String(Math.floor(t / 60) % 60).padStart(2, '0'), ss = String(Math.floor(t) % 60).padStart(2, '0');
+    h.font = '18px "VT323", "Courier New", monospace'; h.textBaseline = 'middle'; h.fillStyle = '#ffffff'; h.shadowColor = 'rgba(0,0,0,.8)'; h.shadowOffsetX = 2; h.shadowOffsetY = 2;
+    if (fightMode) { h.textAlign = 'center'; h.fillText(`${Math.floor(t) % 2 ? '▶' : ' '} PLAY   SP  0:${mm}:${ss}`, HW / 2, 516); }
+    else { h.textAlign = 'right'; h.font = '26px "VT323", "Courier New", monospace'; h.fillText(`▶ PLAY`, HW - 34, 40); h.font = '20px "VT323", "Courier New", monospace'; h.fillText(`SP  0:${mm}:${ss}`, HW - 34, 66); }
+    h.shadowColor = 'transparent'; h.shadowOffsetX = 0; h.shadowOffsetY = 0;
   }
   setStage(id, force) {
     if (this.stageId === id && !force) return;

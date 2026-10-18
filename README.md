@@ -30,5 +30,5 @@ Les photos restent dans le navigateur de chacun : elles ne sont jamais envoyées
 Reculer = se protéger. Arrière + bas protège des balayettes.
 
 ## Technique
-Aucune dépendance : un petit moteur 3D WebGL maison (`js/gl.js`) avec rendu basse résolution et tramage façon PS2.
+Aucune dépendance : un petit moteur 3D WebGL maison (`js/gl.js`). Style par défaut « cassette VHS » inspiré des jeux PS1 rétro : image en 320×180, sommets qui tremblent, textures pixelisées et déformées, filtre magnétoscope. Les autres styles (PS1, PS2, HD) sont dans les options.
 L'ancienne version 2D est dans [`classic/`](classic/).

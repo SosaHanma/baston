@@ -253,7 +253,7 @@ function fightFrame(dt) {
 /* ---------------- options ---------------- */
 const OPTS = [
   { k: 'diff', label: "Difficulté de l'ordi", vals: ['facile', 'normal', 'difficile'], txt: { facile: 'Facile', normal: 'Normal', difficile: 'Difficile' } },
-  { k: 'gfx', label: 'Graphismes', vals: ['ps2', 'pixel', 'hd'], txt: { ps2: 'PS2', pixel: 'PS2 pixel', hd: 'Haute définition' } },
+  { k: 'gfx', label: 'Graphismes', vals: ['vhs', 'ps1', 'ps2', 'hd'], txt: { vhs: 'Rétro cassette VHS', ps1: 'Rétro PS1', ps2: 'PS2 propre', hd: 'Haute définition' } },
   { k: 'time', label: "Durée d'une manche", vals: [60, 99, 0], txt: { 60: '60 secondes', 99: '99 secondes', 0: 'Illimitée' } },
   { k: 'rounds', label: 'Manches pour gagner', vals: [1, 2, 3], txt: { 1: '1', 2: '2', 3: '3' } },
   { k: 'sound', label: 'Son', vals: [true, false], txt: { true: 'Oui', false: 'Non' } },
@@ -388,6 +388,7 @@ function loop(ts) {
   if (sc === 'fight' && screen === 'fight') fightFrame(dt); else endFrame();
   view.render();
   if (screen === 'fight') view.drawFight(fight); else view.hudBegin();
+  if (screen !== 'workshop') view.osd(screen === 'fight');
   if (frameN % 30 === 0 && screen === 'title') $('#padLine').innerHTML = padText();
 }
 addEventListener('resize', () => view.resize());
