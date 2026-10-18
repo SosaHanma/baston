@@ -7,14 +7,14 @@ Jeu de combat en 3D façon PS2, avec toute la famille.
 ## Les combattants
 | Perso | Style | Pouvoir |
 |---|---|---|
-| Moi | Équilibré | Uppercut du Dragon |
-| Frère | Costaud | Charge du Taureau |
-| Petit frère | Petit et rapide | Pluie de jouets |
-| Sœur 1 | Technique | Selfie Flash |
-| Sœur 2 | Acrobate | Tornade |
-| Les Chats (duo) | Duo agile | Griffes en folie |
+| Hacéne | Équilibré | Uppercut du Dragon |
+| Anis | Costaud | Charge du Taureau |
+| Manil (petit frère) | Petit et rapide | Pluie de jouets |
+| Raja | Technique | Selfie Flash |
+| Wafa | Acrobate | Tornade |
+| Bouftiko & Poutine (duo de chats) | Duo agile | Griffes en folie |
 
-Dans l'**Atelier**, chacun peut recevoir sa photo (les chats en ont deux), ses couleurs et un autre pouvoir.
+Dans l'**Atelier**, chacun peut recevoir sa photo (une pour Bouftiko, une pour Poutine), ses couleurs et un autre pouvoir.
 Les photos restent dans le navigateur de chacun : elles ne sont jamais envoyées ni enregistrées dans ce dépôt.
 
 ## Commandes

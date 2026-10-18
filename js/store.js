@@ -18,6 +18,8 @@ export function cust(id) {
   const d = CHARS.find(c => c.id === id);
   const c = store.chars[id] || (store.chars[id] = {});
   const def = { name: d.name, color: d.color, color2: d.color2, skin: d.skin, hairCol: d.hairCol, power: d.power, photo: null, zoom: 1, ox: 0, oy: 0, photo2: null, zoom2: 1, ox2: 0, oy2: 0 };
+  const OLD = { moi: 'Moi', frere: 'Frère', petit: 'Petit frère', soeur1: 'Sœur 1', soeur2: 'Sœur 2', chats: 'Les Chats' };
+  if (c.name === OLD[id]) c.name = d.name;
   for (const k in def) if (c[k] === undefined) c[k] = def[k];
   if (!POWERS[c.power]) c.power = d.power;
   return c;

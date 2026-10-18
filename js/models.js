@@ -138,7 +138,8 @@ export function buildCats(def, c, img) {
   redrawFace();
   const root = new Node(), body = new Node(); root.add(body);
   const A = buildCat(c.color, fA), Bc = buildCat(c.color2, fB);
-  A.base = [.16, 0, .2]; Bc.base = [-.42, 0, -.2];
+  A.base = [.16, 0, .2]; Bc.base = [-.4, 0, -.2];
+  A.g.scl(1.14); Bc.g.scl(.82); // Bouftiko est le plus gros, Poutine le plus petit
   body.add(Bc.g, A.g);
   return { kind: 'cats', root, body, cats: [A, Bc], redrawFace, scale: 1, m: { a: A.m, b: Bc.m }, faceC: fA, faceC2: fB };
 }

@@ -58,7 +58,7 @@ function setShow(side, id, other) {
   const col = side === 1 && id === other ? altColor(c.color) : null;
   if (show.ids[side] === id && show.col?.[side] === col && !show.dirty) return;
   view.setFighter(side, def, c, col);
-  const f = new Fighter(def, c, side, col); f.x = side ? 610 : 350; show.f[side] = f; show.ids[side] = id;
+  const f = new Fighter(def, c, side, col); f.x = side ? 700 : 260; show.f[side] = f; show.ids[side] = id;
   (show.col || (show.col = []))[side] = col;
 }
 function tickShow(lively) {
@@ -334,15 +334,15 @@ function buildWorkshop() {
   CHARS.forEach(def => {
     const c = cust(def.id), cats = def.kind === 'cats';
     const card = document.createElement('div'); card.className = 'card';
-    card.innerHTML = `<h3>${esc(CHARS.find(x => x.id === def.id).name)}</h3><div class="tg">${def.tag}${cats ? ' · deux chats, deux photos' : ''}</div>
+    card.innerHTML = `<h3>${esc(CHARS.find(x => x.id === def.id).name)}</h3><div class="tg">${def.tag}${cats ? ' · une photo par chat' : ''}</div>
       <div class="faces${cats ? ' duo' : ''}"></div><div class="hint">Glisse la photo pour centrer le visage, molette pour zoomer</div>
-      <input class="name" maxlength="14" aria-label="Nom affiché">
+      <input class="name" maxlength="20" aria-label="Nom affiché">
       <div class="colors">${cats
         ? `<label>Pelage 1<input type="color" data-k="color"></label><label>Pelage 2<input type="color" data-k="color2"></label>`
         : `<label>Haut<input type="color" data-k="color"></label><label>Bas<input type="color" data-k="color2"></label><label>Peau<input type="color" data-k="skin"></label><label>Cheveux<input type="color" data-k="hairCol"></label>`}</div>
       <label class="fld">Pouvoir<select>${powOpts}</select></label><p class="pd"></p>`;
-    const faces = card.querySelector('.faces'), boxes = [faceBox(def, c, false, cats ? 'Chat 1' : '')];
-    if (cats) boxes.push(faceBox(def, c, true, 'Chat 2'));
+    const faces = card.querySelector('.faces'), boxes = [faceBox(def, c, false, cats ? def.catNames[0] + ' (le gros)' : '')];
+    if (cats) boxes.push(faceBox(def, c, true, def.catNames[1] + ' (le petit)'));
     boxes.forEach(b => faces.appendChild(b));
     const nm = card.querySelector('.name'); nm.value = c.name; nm.oninput = () => { c.name = nm.value || def.name; save(saveWarn); };
     card.querySelectorAll('input[type=color]').forEach(inp => { inp.value = c[inp.dataset.k]; inp.oninput = () => { c[inp.dataset.k] = inp.value; boxes.forEach(b => b.redraw()); save(saveWarn); }; });
