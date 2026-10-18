@@ -1,6 +1,7 @@
 // Bruitages synthétisés (aucun fichier son)
 import { store } from './store.js';
 let AC = null, noiseBuf = null;
+export const audioCtx = () => AC;
 export function audioInit() {
   if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
   try {

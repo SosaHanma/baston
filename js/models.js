@@ -131,28 +131,28 @@ export function lowPoint(p, hr, ko) {
 
 /* ------------------------------------------------------------------ Chats */
 function buildCat(col, faceC, fat) {
-  const m = { fur: mat({ color: col, tex: texOf(fat ? 'tabby' : 'plainfur', () => tabby(fat)) }), belly: mat({ color: '#efe7da', tex: texOf('plainfur', () => tabby(false)) }),
+  const m = { fur: mat({ color: col, tex: texOf(fat ? 'tabby' : 'plainfur', () => tabby(fat)), spec: .03, shin: 8 }), belly: mat({ color: '#d9d0c0', tex: texOf('plainfur', () => tabby(false)), spec: .02 }),
     face: mat({ tex: faceC, transparent: true, depthWrite: true }) };
   const g = new Node(), fz = fat ? 1.3 : 1;
-  const body = N(gg('catBody' + fat, () => geo.sphere(.17, 20, 14)), m.fur).at(0, .28, 0).scl(1.75, fat ? .92 : .8, .72 * fz); g.add(body);
-  g.add(N(gg('catChest', () => geo.sphere(.1, 14, 10)), m.belly).at(.21, .29, 0).scl(1, 1.05, .9 * (fat ? 1.1 : 1)));
+  const body = N(gg('catBody' + fat, () => geo.sphere(.17, 12, 8)), m.fur).at(0, .28, 0).scl(1.75, fat ? .92 : .8, .72 * fz); g.add(body);
+  g.add(N(gg('catChest', () => geo.sphere(.1, 10, 7)), m.belly).at(.21, .29, 0).scl(1, 1.05, .9 * (fat ? 1.1 : 1)));
   for (const z of [-1, 1]) g.add(N(gg('haunch' + fat, () => geo.sphere(.085 * (fat ? 1.15 : 1), 8, 6)), m.fur).at(-.19, .27, z * .055 * fz));
   const head = new Node().at(.33, .43, 0); g.add(head);
-  head.add(N(gg('catSkull', () => geo.sphere(.095, 20, 14)), m.fur).scl(1.05, .92, 1.08));
+  head.add(N(gg('catSkull', () => geo.sphere(.095, 12, 9)), m.fur).scl(1.05, .92, 1.08));
   head.add(N(gg('muzzle', () => geo.sphere(.045, 8, 6)), m.belly).at(.072, -.035, 0).scl(1, .8, 1.2));
-  head.add(N(gg('catFace', () => geo.sphere(.1, 20, 14, Math.PI - 1.0, 2.0, Math.PI / 2 - .85, 1.7)), m.face).scl(1.05, .92, 1.08));
+  head.add(N(gg('catFace', () => geo.sphere(.1, 12, 9, Math.PI - 1.0, 2.0, Math.PI / 2 - .85, 1.7)), m.face).scl(1.05, .92, 1.08));
   for (const z of [-1, 1]) head.add(N(gg('catEar', () => geo.cyl(0, .042, .08, 3)), m.fur).at(-.015, .085, z * .052).rot(z * .25, z * .5, .1));
   const legs = [];
   for (const [x, z] of [[.19, .065], [.19, -.065], [-.19, .065], [-.19, -.065]]) {
     const lp = new Node().at(x, .24, z * fz); g.add(lp);
-    lp.add(N(gg('catLeg', () => geo.limb(.23, .026, .021, 10)), m.fur));
+    lp.add(N(gg('catLeg', () => geo.limb(.23, .026, .021, 7)), m.fur));
     lp.add(N(gg('catPaw', () => geo.sphere(.03, 6, 5)), m.belly).at(.008, -.232, 0).scl(1.3, .8, 1));
     legs.push(lp);
   }
   const tail = []; let prev = g;
   for (let i = 0; i < 5; i++) {
     const t = new Node().at(i ? 0 : -.29, i ? -.085 : .31, 0); prev.add(t);
-    t.add(N(gg('catTail', () => geo.limb(.085, .022, .018, 10)), m.fur)); tail.push(t); prev = t;
+    t.add(N(gg('catTail', () => geo.limb(.085, .022, .018, 6)), m.fur)); tail.push(t); prev = t;
   }
   return { g, body, head, legs, tail, m, o: { x: 0, y: 0, pitch: 0, roll: 0 } };
 }

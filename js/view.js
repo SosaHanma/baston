@@ -6,6 +6,7 @@ import { buildPS2Human } from './ps2char.js';
 import * as T from './textures.js';
 import { img, store } from './store.js';
 import { W } from './data.js';
+import { FX } from './fx.js';
 
 const TAU = Math.PI * 2, HW = 960, HH = 540, OUT = '#07050f';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -22,6 +23,7 @@ export class View {
     this.glowMat = mat({ tex: T.glow('255,240,200'), additive: true, unlit: true, fog: false });
     this.proj = new Map(); this.dropN = new Map();
     for (let i = 0; i < 2; i++) { const s = new Node(geo.disc(.5, 16), mat({ tex: this.blobTex, transparent: true, unlit: true })).rot(-Math.PI / 2, 0, 0); this.shadows.push(s); this.world.add(s); }
+    this.fx = new FX(); this.fxT = 0;
     this.stageId = null; this.resize();
   }
   resize() {
@@ -72,6 +74,7 @@ export class View {
     s.at(x, .012, 0); s.scl(k * 1.1, k * .7, 1);
   }
   syncFX(fight) {
+    this.effects(fight);
     const seen = new Set();
     for (const p of fight.projs) {
       seen.add(p.id); let n = this.proj.get(p.id);
@@ -99,7 +102,42 @@ export class View {
     }
     for (const [id, n] of this.dropN) if (!seenD.has(id)) { this.world.remove(n); this.world.remove(n.shadow); this.dropN.delete(id); }
   }
-  clearFX() { for (const n of this.proj.values()) this.world.remove(n); for (const n of this.dropN.values()) { this.world.remove(n); this.world.remove(n.shadow); } this.proj.clear(); this.dropN.clear(); }
+  // traduit les évènements du combat en effets 3D (positions de jeu -> mètres)
+  effects(fight) {
+    const F = this.fx, Y = y => -y / 100, z0 = .05; this.fxT++;
+    const light = (x, y, k = 1) => { this.flashPos = [X3(x), Y(y), 1]; this.flashLight = Math.max(this.flashLight || 0, k); };
+    for (const e of fight.fxq) {
+      const x = X3(e.x ?? 0), y = Y(e.y ?? 0);
+      switch (e.t) {
+        case 'hit': F.hit(x, y, z0, e.col || '#ffffff', false); light(e.x, e.y, .25); break;
+        case 'bighit': F.hit(x, y, z0, e.col || '#ffd23f', true); light(e.x, e.y, .6); break;
+        case 'block': F.glow(x, y, z0, '#8fe4ff', .5, 8); F.ring(x, y, z0, '#8fe4ff', .9, 10); F.sparks(x, y, z0, '#bff0ff', 6, .06); break;
+        case 'dust': F.dust(x, .03, 0, 6); break;
+        case 'ko': F.hit(x, y, z0, '#ffffff', true); F.ring(x, y, z0, '#ffd23f', 4, 30); F.flashStar(x, y, z0); light(e.x, e.y, 1.5); break;
+        case 'flash': F.flashStar(x, y, .2); light(e.x, e.y, 1.5); break;
+        case 'portal': F.portal(x, y, 0, '#ffd23f'); break;
+        case 'slash': F.slash(x, y, z0, e.dir, '#c77dff'); break;
+        case 'powerStart': { const f = e.f, fx = X3(f.x), hh = f.h / 100; F.ring(fx, hh * .55, 0, f.color, 2.2, 24); F.glow(fx, hh * .55, 0, '#ffffff', .7, 12); for (let i = 0; i < 14; i++) F.aura(fx, 0, hh, f.color, 1); light(f.x, f.y - f.h * .6, .7); break; }
+        case 'pw_dragon': { const f = e.f, fx = X3(f.x) + f.face * .15, fy = Y(f.y) + f.h / 100 * .85; F.fire(fx, fy, 0, 3, 1.2); F.spiral(X3(f.x), Y(f.y), f.h / 100, '#ff8a2a', this.fxT, 2); light(f.x, f.y - f.h * .9, .45); break; }
+        case 'pw_charge': { const f = e.f, fx = X3(f.x); F.dust(fx - f.face * .2, .05, 0, 2); for (let i = 0; i < 2; i++) F.spawn({ x: fx + f.face * .2, y: Y(f.y) + .3 + Math.random() * f.h / 100 * .8, z: (Math.random() - .5) * .3, vx: -f.face * .12, streak: .4, size: .04, life: 8, col: '#ffffff', col1: '#ff5a3d', alpha: .7 }); F.aura(fx, Y(f.y), f.h / 100, '#ff5a3d', 2); break; }
+        case 'pw_tornade': { const f = e.f; F.spiral(X3(f.x), Y(f.y), f.h / 100 * 1.1, '#c9b7ff', this.fxT, 5); if (this.fxT % 3 === 0) F.dust(X3(f.x), .03, 0, 2); break; }
+        case 'pw_griffes': { const f = e.f; F.aura(X3(f.x), 0, .6, '#c77dff', 2); if (this.fxT % 2 === 0) F.dust(X3(f.x), .03, 0, 1); break; }
+        case 'pw_summon': case 'pw_selfie': { const f = e.f; F.aura(X3(f.x), Y(f.y), f.h / 100, f.color, 3); break; }
+      }
+    }
+    fight.fxq.length = 0;
+    // aura pendant la mise en scène d'un pouvoir
+    if (fight.cine) { const f = fight.cine.f; F.aura(X3(f.x), Y(f.y), f.h / 100, f.color, 2); if (this.fxT % 2) F.aura(X3(f.x), Y(f.y), f.h / 100, '#ffffff', 1); }
+    // traînées des projectiles
+    for (const p of fight.projs) {
+      const x = X3(p.x), y = Y(p.y);
+      if (p.kind === 'energy') { F.trail(x, y, 0, p.owner.color, .22, 12); F.trail(x, y, 0, '#ffffff', .1, 7); if (this.fxT % 2) F.sparks(x, y, 0, p.owner.color, 1, .03); }
+      else if (p.kind === 'ballon') { if (this.fxT % 3 === 0) F.smoke(x - Math.sign(p.vx) * .1, y, 0, .08, '#c8c0b0', 18); }
+      else F.spawn({ x, y, z: 0, vx: -p.vx * .002, vy: (Math.random() - .5) * .01, size: .06, size1: .12, life: 20, cell: 3, add: false, col: '#9a8f86', alpha: .6 });
+    }
+    for (const d of fight.drops) if (d.delay <= 0 && this.fxT % 2 === 0) F.spawn({ x: X3(d.x), y: Y(d.y), z: 0, size: .08, life: 12, cell: 2, col: d.col, rotv: .2 });
+  }
+  clearFX() { this.fx.clear(); for (const n of this.proj.values()) this.world.remove(n); for (const n of this.dropN.values()) { this.world.remove(n); this.world.remove(n.shadow); } this.proj.clear(); this.dropN.clear(); }
   // caméra de combat : suit les deux combattants, zoome sur les pouvoirs
   camFight(fight) {
     const a = fight.f1, b = fight.f2, x1 = X3(a.x), x2 = X3(b.x);
@@ -109,8 +147,10 @@ export class View {
     if (fight.cine) { const f = fight.cine.f, fx = X3(f.x), hh = f.h / 100, fy = -f.y / 100; e = [fx + f.face * 1.4, fy + hh * .8, 2.6 + hh * .3]; t = [fx, fy + hh * .72, 0]; k = .25; }
     if (fight.phase === 'over' || (fight.phase === 'roundEnd' && fight.pt < 150 && fight.winner)) { const f = fight.winner, fx = X3(f.x), hh = f.h / 100; e = [fx + f.face * 1.6, .6 + hh * .6, 3]; t = [fx, hh * .6, 0]; k = .05; }
     this.moveCam(e, t, k, fight.shake);
+    const g = fight.cine ? .5 : fight.slow > 0 ? .3 : 0; this.R.grade += (g - this.R.grade) * .2; this.R.tint = fight.cine ? [.55, .55, .75] : [.8, .82, .9];
   }
   camShow(x1, x2, orbit) {
+    this.R.grade *= .8;
     const mid = (x1 + x2) / 2;
     const e = orbit != null ? [mid + Math.sin(orbit) * 5.5, 1.6, Math.cos(orbit) * 5.5 + 1] : [mid, 1.2, 5.2];
     this.moveCam(e, [mid, .85, 0], orbit != null ? 1 : .1, 0);
@@ -125,7 +165,10 @@ export class View {
     const e = this.stage.env, base = e.points || (e.point ? [e.point] : []), k = e.fill ?? .55;
     // lumière d'appoint côté caméra pour bien voir les visages
     const fill = { pos: [this.cam.eye[0] * .8, 2.1, Math.max(1.5, this.cam.eye[2] - 1)], col: [k, k * .93, k * .85], range: 11 };
-    this.R.render(this.scene, this.cam, { ...e, points: [...base.slice(0, 5), fill] });
+    const pts = [...base.slice(0, 5), fill];
+    if (this.flashLight > .02) { pts[4] = { pos: this.flashPos, col: [this.flashLight * 3, this.flashLight * 2.6, this.flashLight * 2.2], range: 9 }; this.flashLight *= .85; }
+    this.fx.update();
+    this.R.render(this.scene, this.cam, { ...e, points: pts }, R => this.fx.draw(R, this.cam.view));
   }
   // coordonnées de jeu -> pixels du HUD (960×540)
   scr(x, y) { const p = this.R.project(this.cam, X3(x), -y / 100, 0); return [p[0] * HW, p[1] * HH, p[2]]; }
@@ -175,10 +218,35 @@ export class View {
       h.save(); h.translate(sx, sy); h.scale(s, s); this.txt(q.text, 0, 0, q.size, q.col, 'center', 7); h.restore();
     }
     h.globalAlpha = 1;
-    if (fight.cine) { h.fillStyle = 'rgba(7,5,15,.35)'; h.fillRect(0, 0, HW, 60); h.fillRect(0, HH - 60, HW, 60); }
+    if (fight.cine) this.cutIn(fight);
     else this.hudBars(fight);
     this.center(fight);
     if (fight.flash > .02) { h.fillStyle = `rgba(255,255,255,${fight.flash})`; h.fillRect(0, 0, HW, HH); }
+  }
+  // bandeau de super pouvoir : visage du perso + nom du pouvoir
+  cutIn(fight) {
+    const h = this.h, c = fight.cine, k = 1 - c.t / c.max, f = c.f, side = f.side ? -1 : 1;
+    const inA = Math.min(1, k / .18), outA = c.t < 6 ? c.t / 6 : 1, A = inA * outA;
+    h.save(); h.globalAlpha = A;
+    h.fillStyle = 'rgba(0,0,0,.55)'; h.fillRect(0, 0, HW, 70); h.fillRect(0, HH - 70, HW, 70);
+    // lignes de vitesse
+    h.strokeStyle = 'rgba(255,255,255,.18)'; h.lineWidth = 2;
+    for (let i = 0; i < 18; i++) { const y = 200 + ((i * 37 + fight.frame * 9) % 160); h.beginPath(); h.moveTo(0, y); h.lineTo(HW, y - 40 * side); h.stroke(); }
+    // bande diagonale
+    const slide = (1 - inA) * 600 * side;
+    h.translate(slide, 0);
+    h.beginPath(); h.moveTo(0, 210); h.lineTo(HW, 170); h.lineTo(HW, 340); h.lineTo(0, 380); h.closePath();
+    const gr = h.createLinearGradient(0, 0, HW, 0); gr.addColorStop(0, f.side ? 'rgba(10,8,20,.92)' : '#b8471c'); gr.addColorStop(.45, 'rgba(10,8,20,.92)'); gr.addColorStop(1, f.side ? '#1c6ab8' : 'rgba(10,8,20,.92)');
+    h.fillStyle = gr; h.fill(); h.strokeStyle = '#ffd23f'; h.lineWidth = 4; h.stroke();
+    // visage
+    const rig = this.models[f.side], px = f.side ? HW - 210 : 210;
+    if (rig) { h.save(); h.beginPath(); h.ellipse(px, 275, 95, 115, 0, 0, TAU); h.clip(); h.fillStyle = rig.m.skin ? rgbStr(rig.m.skin.color) : '#888'; h.fillRect(px - 100, 155, 200, 240);
+      h.drawImage(rig.faceC, px - 100, 160, 200, 230); if (rig.m.hair && !rig.photo) { h.fillStyle = rgbStr(rig.m.hair.color); h.beginPath(); h.ellipse(px, 160, 110, 60, 0, 0, TAU); h.fill(); } h.restore(); h.lineWidth = 5; h.strokeStyle = '#fff1dc'; h.beginPath(); h.ellipse(px, 275, 95, 115, 0, 0, TAU); h.stroke(); }
+    const tx = f.side ? 360 : HW - 360;
+    this.txt((f.c.name || '').toUpperCase(), tx, 228, 26, '#fff1dc', 'center', 6);
+    const g2 = h.createLinearGradient(0, -30, 0, 30); g2.addColorStop(0, '#ffffff'); g2.addColorStop(.5, '#ffe58a'); g2.addColorStop(1, '#ff7a1e');
+    h.save(); h.translate(tx, 290); h.transform(1, 0, -.18, 1, 0, 0); this.txt(c.name.toUpperCase(), 0, 0, c.name.length > 16 ? 40 : 50, g2, 'center', 10); h.restore();
+    h.restore();
   }
   hudBars(fight) {
     const h = this.h, L = fight.f1, R = fight.f2;

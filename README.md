@@ -14,8 +14,8 @@ Jeu de combat en 3D façon PS2, avec toute la famille, dans des décors de nuit 
 | Wafa | Acrobate | Tornade |
 | Bouftiko & Poutine (duo de chats) | Duo agile | Griffes en folie |
 
-Dans l'**Atelier**, chacun peut recevoir sa photo (une pour Bouftiko, une pour Poutine), ses couleurs et un autre pouvoir.
-Les photos restent dans le navigateur de chacun : elles ne sont jamais envoyées ni enregistrées dans ce dépôt.
+Dans l'**Atelier**, chacun peut recevoir sa photo (une pour Bouftiko, une pour Poutine), ses couleurs, un autre pouvoir et **sa voix** (cri d'attaque, pouvoir, aïe, K.O., victoire), enregistrée au micro ou importée depuis un vocal.
+Les photos et les voix restent dans le navigateur de chacun : elles ne sont jamais envoyées ni enregistrées dans ce dépôt.
 
 ## Commandes
 | | Manette | Clavier J1 | Clavier J2 |
@@ -28,6 +28,10 @@ Les photos restent dans le navigateur de chacun : elles ne sont jamais envoyées
 | Pause | Start | Échap | |
 
 Reculer = se protéger. Arrière + bas protège des balayettes.
+
+## Ajouter un pouvoir
+Les effets (`js/fx.js`) se combinent : feu, éclairs, ondes de choc, étincelles, fumée, spirales, coups de griffe, portail, flash.
+Chaque pouvoir a une mise en scène : bandeau avec le visage du perso, ralenti, zoom de caméra, lumière dynamique et lueur.
 
 ## Technique
 Aucune dépendance : un petit moteur 3D WebGL maison (`js/gl.js`). Style par défaut « cassette VHS » inspiré des jeux PS1 rétro : image en 320×180, sommets qui tremblent, textures pixelisées et déformées, filtre magnétoscope. Les autres styles (PS1, PS2, HD) sont dans les options.

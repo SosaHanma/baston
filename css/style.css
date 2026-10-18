@@ -135,3 +135,10 @@ select{width:100%;background:var(--panel2);border:2px solid var(--line);border-r
 .fatal{position:fixed;inset:0;display:grid;place-content:center;text-align:center;padding:24px;background:var(--bg);z-index:60}
 .fatal h2{font:400 32px var(--display);color:var(--gold);margin:0}
 @media (prefers-reduced-motion:reduce){.pressstart{animation:none}}
+
+.voices{display:grid;gap:6px}
+.vrow{display:grid;grid-template-columns:1fr auto auto auto auto;gap:4px;align-items:center;font-size:12px;color:var(--muted)}
+.vrow.has span{color:var(--gold)}
+.vrow .btn{padding:4px 7px;font-size:12px}
+.vrow .btn:disabled{opacity:.35;cursor:default}
+.vrow .vrec.on{background:#c0392b;border-color:#c0392b;color:#fff}

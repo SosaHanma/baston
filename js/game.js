@@ -31,7 +31,7 @@ export class Fight {
     const same = d1.id === d2.id;
     this.f1 = new Fighter(d1, c1, 0); this.f2 = new Fighter(d2, c2, 1, same ? (c1.color.toLowerCase() === '#3fd0ff' ? '#ff6a3d' : '#3fd0ff') : null);
     this.opts = opts; this.round = 1; this.frame = 0; this.projs = []; this.drops = []; this.parts = []; this.pops = []; this.flash = 0;
-    this.hitstop = 0; this.shake = 0; this.slow = 0; this.cine = null; this.events = []; this.pid = 0;
+    this.hitstop = 0; this.shake = 0; this.slow = 0; this.cine = null; this.events = []; this.pid = 0; this.fxq = [];
     this.startRound();
   }
   startRound() {
@@ -44,8 +44,9 @@ export class Fight {
   start(f, name) {
     f.move = name; f.mt = 0; f.hitDone = false; f.state = 'attack'; f.buf = {};
     if (!MV[name].power && name !== 'fire') sfx('whoosh');
+    if (!MV[name].power && Math.random() < .3) this.events.push({ voice: 'coup', f });
     if (!MV[name].air) f.vx = 0;
-    if (MV[name].power) { this.cine = { f, t: 34 }; this.hitstop = 34; sfx('power'); this.pop(f.power().name.toUpperCase(), W / 2, 0, '#ffd23f', 36, true); }
+    if (MV[name].power) { this.cine = { f, t: 48, max: 48, name: f.power().name }; this.hitstop = 48; sfx('power'); this.fxq.push({ t: 'powerStart', f }); this.events.push({ voice: 'pouvoir', f }); this.pop(f.power().name.toUpperCase(), W / 2, 0, '#ffd23f', 36, true); }
   }
   canBlock(o, srcX, lvl) {
     if (!o.onGround || o.move || lvl === 'unblock') return false;
@@ -67,6 +68,8 @@ export class Fight {
     }
     if (o.armor) { o.hp -= dmg * .6; o.flash = 1; this.burst(h.hx, h.hy, '#fff1dc', 8, 4); sfx('block'); this.hitstop = 3; if (o.hp <= 0) this.ko(a, o, dir); return; }
     a.combo = o.stun > 0 ? a.combo + 1 : 1;
+    if (dmg > 8 || Math.random() < .25) this.events.push({ voice: 'aie', f: o });
+    if (a.move === 'griffes') this.fxq.push({ t: 'slash', x: h.hx, y: h.hy, dir: a.face });
     o.hp -= dmg; o.stun = h.stun; o.blockstun = false; o.state = 'hit'; o.move = null; o.vx = dir * h.kb; o.flash = 1; o.frozen = 0;
     if (!o.onGround) { o.vy = -6; o.stun += 10; }
     if (h.launch) { o.vy = -11; o.onGround = false; o.stun += 8; }
@@ -82,7 +85,7 @@ export class Fight {
   ko(a, o, dir) {
     o.hp = 0; o.state = 'ko'; o.stun = 0; o.move = null; o.onGround = false; o.vy = -10; o.vx = dir * 7; o.frozen = 0; o.armor = false; o.dazzle = 0;
     this.phase = 'roundEnd'; this.pt = 230; this.winner = a; this.endMsg = 'K.O. !'; this.slow = 70; this.hitstop = 18; a.wins++;
-    this.projs = []; this.drops = []; sfx('ko');
+    this.projs = []; this.drops = []; sfx('ko'); this.fxq.push({ t: 'ko', x: o.x, y: o.y - o.h * .6 }); this.events.push({ voice: 'ko', f: o }, { voice: 'victoire', f: a, delay: 90 });
   }
   melee(f, o, m) {
     if (o.state === 'ko') return;
@@ -103,10 +106,11 @@ export class Fight {
     switch (name) {
       case 'fire': this.spawnProj(f); break;
       case 'summon':
+        this.fxq.push({ t: 'portal', x: o.x, y: -420 });
         for (let i = 0; i < 6; i++) this.drops.push({ id: ++this.pid, x: clamp(o.x + (i - 2.5) * 44 + (Math.random() - .5) * 16, 30, W - 30), y: -620 - i * 30, vy: 0, delay: i * 7, owner: f, dmg: 6, rot: Math.random() * TAU, col: ['#e8452c', '#2d6cdf', '#34c46a', '#f2c94c', '#d94fa3', '#ff8a3d'][i] });
         break;
       case 'selfie': {
-        this.flash = 1; sfx('flash');
+        this.flash = 1; sfx('flash'); this.fxq.push({ t: 'flash', x: f.x + f.face * 35, y: f.y - f.h * .85 });
         const dx = (o.x - f.x) * f.face;
         if (dx > 0 && dx < 380 && o.y > -170 && o.invul <= 0 && o.state !== 'ko') {
           const half = o.guarding || o.blockstun;
@@ -155,7 +159,7 @@ export class Fight {
       if (m.armor) f.armor = f.mt < m.s + m.a;
       if (m.multi && act && (f.mt - m.s) % m.multi === 0) f.hitDone = false;
       if (f.move === 'dragon' && f.mt < m.s + 10) f.invul = 2;
-      if (f.move === 'dragon' && act) for (let i = 0; i < 2; i++) this.parts.push({ t: 'fire', x: f.x + f.face * 20 + (Math.random() - .5) * 20, y: f.y - f.h * .9, vx: (Math.random() - .5) * 2, vy: 1 + Math.random() * 2, life: 18, max: 18 });
+      if (m.power && act) this.fxq.push({ t: 'pw_' + f.move, f, k: f.mt - m.s });
       if (m.dmg && act && !f.hitDone) this.melee(f, o, m);
       if (f.mt >= m.s + m.a + m.r && !m.air) { f.move = null; f.crouch = !!inp.d; f.state = f.crouch ? 'crouch' : 'idle'; if (f.onGround) f.vx = 0; f.spin = 0; }
       this.physics(f); return;
@@ -213,9 +217,9 @@ export class Fight {
     }
     return inp;
   }
-  burst(x, y, col, n, sp) { for (let i = 0; i < n; i++) { const a = Math.random() * TAU, v = sp * (.4 + Math.random()); this.parts.push({ t: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 16 + Math.random() * 10, max: 26, col }); } }
-  ring(x, y, col) { this.parts.push({ t: 'ring', x, y, life: 16, max: 16, col }); }
-  dust(x) { for (let i = 0; i < 6; i++) this.parts.push({ t: 'dust', x: x + (Math.random() - .5) * 30, y: -2, vx: (Math.random() - .5) * 2, vy: -Math.random() * 1.5, life: 22, max: 22, col: '#d8d0ee' }); }
+  burst(x, y, col, n, sp) { this.fxq.push({ t: n >= 20 ? 'bighit' : n <= 8 ? 'block' : 'hit', x, y, col }); }
+  ring(x, y, col) { }
+  dust(x) { this.fxq.push({ t: 'dust', x }); }
   pop(text, x, y, col, size, fixed) { this.pops.push({ text, x: clamp(x, 100, W - 100), y, col, size, life: 50, max: 50, fixed }); }
 
   // une image de jeu (1/60 s)

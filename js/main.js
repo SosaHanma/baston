@@ -5,6 +5,7 @@ import { poll, pads, fightInput, menuInput, endFrame, setTyping } from './input.
 import { audioInit, sfx } from './audio.js';
 import { View } from './view.js';
 import { faceTexFor } from './ps2char.js';
+import * as VO from './voice.js';
 import { Fight, Fighter } from './game.js';
 import { cvs, drawFaceCanvas, realFace, realCatFace, photoBackdrop } from './textures.js';
 
@@ -201,6 +202,7 @@ function startFight() {
   view.setStage(STAGES[sel.stage].id);
   view.setFighter(0, d1, cust(d1.id)); view.setFighter(1, d2, cust(d2.id), fight.f2.color);
   show.ids = [null, null]; view.clearFX(); paused = false; acc = 0;
+  VO.preload([d1.id, d2.id]);
   showScreen('fight');
 }
 function restartFight() {
@@ -245,9 +247,9 @@ function fightFrame(dt) {
   }
   animate(fight.f1); animate(fight.f2);
   view.sync(0, fight.f1); view.sync(1, fight.f2); view.syncFX(fight); view.camFight(fight);
-  while (fight.events.length) if (fight.events.shift() === 'over') {
+  while (fight.events.length) { const ev = fight.events.shift(); if (ev && ev.voice) { VO.play(ev.f.def.id, ev.voice, ev.delay || 0); continue; } if (ev === 'over') {
     const w = fight.winner; $('#winTxt').textContent = `${w.c.name} remporte le combat !`; $('#results').hidden = false; resMenu.set(0); $('#pauseBtn').hidden = true;
-  }
+  } }
 }
 
 /* ---------------- options ---------------- */
@@ -341,7 +343,8 @@ function buildWorkshop() {
       <div class="colors">${cats
         ? `<label>Pelage 1<input type="color" data-k="color"></label><label>Pelage 2<input type="color" data-k="color2"></label>`
         : `<label>Haut<input type="color" data-k="color"></label><label>Bas<input type="color" data-k="color2"></label><label>Peau<input type="color" data-k="skin"></label><label>Cheveux<input type="color" data-k="hairCol"></label>`}</div>
-      <label class="fld">Pouvoir<select>${powOpts}</select></label><p class="pd"></p>`;
+      <label class="fld">Pouvoir<select>${powOpts}</select></label><p class="pd"></p>
+      <div class="fld">Voix</div><div class="voices"></div>`;
     const faces = card.querySelector('.faces'), boxes = [faceBox(def, c, false, cats ? def.catNames[0] + ' (le gros)' : '')];
     if (cats) boxes.push(faceBox(def, c, true, def.catNames[1] + ' (le petit)'));
     boxes.forEach(b => faces.appendChild(b));
@@ -350,6 +353,24 @@ function buildWorkshop() {
     const ps = card.querySelector('select'), pd = card.querySelector('.pd');
     const desc = () => { const P = POWERS[c.power]; pd.innerHTML = `${P.desc} <b>Coûte ${P.cost} % de jauge.</b>`; };
     ps.value = c.power; desc(); ps.onchange = () => { c.power = ps.value; desc(); save(saveWarn); };
+    const vbox = card.querySelector('.voices');
+    VO.SLOTS.forEach(([slot, label]) => {
+      const row = document.createElement('div'); row.className = 'vrow';
+      row.innerHTML = `<span>${label}</span><button class="btn vrec">● Enregistrer</button><button class="btn vplay" disabled>▶</button><label class="btn file vimp">Importer<input type="file" accept="audio/*"></label><button class="btn vdel" disabled>×</button>`;
+      const recB = row.querySelector('.vrec'), playB = row.querySelector('.vplay'), delB = row.querySelector('.vdel'), imp = row.querySelector('input');
+      const refresh = () => VO.getClip(def.id, slot).then(b => { playB.disabled = delB.disabled = !b; row.classList.toggle('has', !!b); }).catch(() => { });
+      recB.onclick = async () => {
+        audioInit();
+        if (VO.recording()) { VO.record(); return; }
+        try { recB.textContent = '■ Stop (3 s max)'; recB.classList.add('on');
+          await VO.record(async blob => { recB.textContent = '● Enregistrer'; recB.classList.remove('on'); await VO.saveClip(def.id, slot, blob); refresh(); toast('Voix enregistrée'); });
+        } catch (e) { recB.textContent = '● Enregistrer'; recB.classList.remove('on'); toast("Le micro n'est pas accessible. Autorise-le dans le navigateur, ou importe un fichier audio."); }
+      };
+      playB.onclick = () => VO.getClip(def.id, slot).then(VO.playBlob).catch(() => toast("Ce fichier audio n'a pas pu être lu."));
+      delB.onclick = () => VO.delClip(def.id, slot).then(refresh);
+      imp.onchange = () => { const f = imp.files[0]; if (!f) return; VO.saveClip(def.id, slot, f).then(() => { refresh(); toast('Voix importée'); }); imp.value = ''; };
+      refresh(); vbox.appendChild(row);
+    });
     G.appendChild(card);
   });
   paintDecor();
