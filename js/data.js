@@ -76,6 +76,7 @@ export const POSE = {
 };
 
 export const STAGES = [
+  { id: 'chambre', name: 'La chambre' },
   { id: 'videoclub', name: 'Le vidéoclub' },
   { id: 'parking', name: 'Le parking' },
   { id: 'wc', name: 'Les toilettes' },

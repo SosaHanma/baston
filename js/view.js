@@ -28,7 +28,7 @@ export class View {
     const cw = Math.max(640, Math.round(r.width * dpr));
     this.c3.width = cw; this.c3.height = Math.round(cw * 9 / 16); this.c3.style.imageRendering = 'auto';
     const retro = g === 'vhs' || g === 'ps1';
-    if (g === 'hd') R.setInternal(cw, Math.round(cw * 9 / 16)); else if (retro) R.setInternal(320, 180); else R.setInternal(640, 360);
+    if (g === 'hd') R.setInternal(cw, Math.round(cw * 9 / 16)); else if (retro) R.setInternal(320, 180); else R.setInternal(854, 480);
     R.dither = g === 'hd' ? 0 : 1; R.vhs = g === 'vhs' ? 1 : 0; R.snap = retro ? 1 : 0; R.affine = retro ? 1 : 0;
     R.nearest = retro; R.upNearest = g === 'ps1';
     this.hud.width = Math.round(Math.max(HW, r.width * dpr)); this.hud.height = Math.round(this.hud.width * 9 / 16);
@@ -103,8 +103,8 @@ export class View {
   camFight(fight) {
     const a = fight.f1, b = fight.f2, x1 = X3(a.x), x2 = X3(b.x);
     const mid = clamp((x1 + x2) / 2, -2.6, 2.6), sep = Math.abs(x1 - x2);
-    const dist = clamp(3.6 + sep * .82, 4.4, 8), hy = Math.max(-a.y, -b.y) / 100;
-    let e = [mid * .9, 1.3 + dist * .05 + hy * .3, dist], t = [mid, .9 + hy * .35, 0], k = .12;
+    const dist = clamp(3.1 + sep * .78, 3.7, 7.6), hy = Math.max(-a.y, -b.y) / 100;
+    let e = [mid * .9, 1.25 + dist * .05 + hy * .3, dist], t = [mid, .95 + hy * .35, 0], k = .12;
     if (fight.cine) { const f = fight.cine.f, fx = X3(f.x), hh = f.h / 100, fy = -f.y / 100; e = [fx + f.face * 1.4, fy + hh * .8, 2.6 + hh * .3]; t = [fx, fy + hh * .72, 0]; k = .25; }
     if (fight.phase === 'over' || (fight.phase === 'roundEnd' && fight.pt < 150 && fight.winner)) { const f = fight.winner, fx = X3(f.x), hh = f.h / 100; e = [fx + f.face * 1.6, .6 + hh * .6, 3]; t = [fx, hh * .6, 0]; k = .05; }
     this.moveCam(e, t, k, fight.shake);
@@ -119,7 +119,13 @@ export class View {
     const s = (shake || 0) * .006, ey = [this.eye[0] + (Math.random() - .5) * s, this.eye[1] + (Math.random() - .5) * s, this.eye[2]];
     this.cam.eye = ey; m4.lookAt(ey, this.tgt, [0, 1, 0], this.cam.view); m4.persp(34 * Math.PI / 180, 16 / 9, .1, 200, this.cam.proj);
   }
-  render() { if (!this.stage) return; this.R.render(this.scene, this.cam, this.stage.env); }
+  render() {
+    if (!this.stage) return;
+    const e = this.stage.env, base = e.points || (e.point ? [e.point] : []), k = e.fill ?? .55;
+    // lumière d'appoint côté caméra pour bien voir les visages
+    const fill = { pos: [this.cam.eye[0] * .8, 2.1, Math.max(1.5, this.cam.eye[2] - 1)], col: [k, k * .93, k * .85], range: 11 };
+    this.R.render(this.scene, this.cam, { ...e, points: [...base.slice(0, 5), fill] });
+  }
   // coordonnées de jeu -> pixels du HUD (960×540)
   scr(x, y) { const p = this.R.project(this.cam, X3(x), -y / 100, 0); return [p[0] * HW, p[1] * HH, p[2]]; }
 

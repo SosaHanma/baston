@@ -135,6 +135,27 @@ export const geo = {
     for (let i = 1; i <= seg; i++) I.push(0, i, i + 1);
     return G(P, N, U, I);
   },
+  // surface de révolution à section elliptique : prof = [[y, demi-profondeur X, demi-largeur Z], ...] de haut en bas
+  lathe(prof, seg = 16) {
+    const P = [], U = [], I = [], rows = prof.length;
+    for (let j = 0; j < rows; j++) { const [y, rx, rz] = prof[j];
+      for (let i = 0; i <= seg; i++) { const t = i / seg * Math.PI * 2; P.push(Math.sin(t) * rx, y, Math.cos(t) * rz); U.push(i / seg, 1 - j / (rows - 1)); } }
+    for (let j = 0; j < rows - 1; j++) for (let i = 0; i < seg; i++) { const a = j * (seg + 1) + i, b = a + seg + 1; I.push(a, b, a + 1, b, b + 1, a + 1); }
+    return G(P, smoothNormals(P, I), U, I);
+  },
+  // membre arrondi (gélule) qui descend de 0 à -len
+  limb(len, r1, r2, seg = 12, d = 1) {
+    const pr = [[r1 * .95, 0, 0], [r1 * .75, r1 * .66, r1 * .66], [r1 * .38, r1 * .93, r1 * .93], [0, r1, r1], [-len * .35, (r1 * .65 + r2 * .35), (r1 * .65 + r2 * .35)], [-len, r2, r2],
+      [-len - r2 * .38, r2 * .93, r2 * .93], [-len - r2 * .75, r2 * .66, r2 * .66], [-len - r2 * .95, 0, 0]];
+    return geo.lathe(pr.map(([y, a, b]) => [y, a * d, b]), seg);
+  },
+  // rideau / tissu ondulé (plan XY qui ondule en Z)
+  curtain(w, h, folds = 6, amp = .06, segX = 48, segY = 6) {
+    const P = [], U = [], I = [];
+    for (let j = 0; j <= segY; j++) for (let i = 0; i <= segX; i++) { const u = i / segX, v = j / segY; P.push(-w / 2 + u * w, -h / 2 + v * h, Math.sin(u * folds * Math.PI * 2) * amp * (1 - v * .3)); U.push(u * folds * .5, v); }
+    for (let j = 0; j < segY; j++) for (let i = 0; i < segX; i++) { const a = j * (segX + 1) + i, b = a + 1, c = a + segX + 2, d = a + segX + 1; I.push(a, b, c, a, c, d); }
+    return G(P, smoothNormals(P, I), U, I);
+  },
   // prisme triangulaire (toit) : base w×d, hauteur h, faîtage selon X
   roof(w, h, d) {
     const x = w / 2, z = d / 2, P = [], N = [], U = [], I = [];
@@ -148,6 +169,18 @@ export const geo = {
     return G(P, N, U, I);
   },
 };
+
+function smoothNormals(P, I) {
+  const n = new Float32Array(P.length), key = i => `${P[i * 3].toFixed(4)},${P[i * 3 + 1].toFixed(4)},${P[i * 3 + 2].toFixed(4)}`, acc = new Map();
+  for (let k = 0; k < I.length; k += 3) {
+    const a = I[k], b = I[k + 1], c = I[k + 2];
+    const ux = P[b * 3] - P[a * 3], uy = P[b * 3 + 1] - P[a * 3 + 1], uz = P[b * 3 + 2] - P[a * 3 + 2], vx = P[c * 3] - P[a * 3], vy = P[c * 3 + 1] - P[a * 3 + 1], vz = P[c * 3 + 2] - P[a * 3 + 2];
+    const fx = uy * vz - uz * vy, fy = uz * vx - ux * vz, fz = ux * vy - uy * vx;
+    for (const v of [a, b, c]) { const kk = key(v); const e = acc.get(kk) || [0, 0, 0]; e[0] += fx; e[1] += fy; e[2] += fz; acc.set(kk, e); }
+  }
+  for (let v = 0; v < P.length / 3; v++) { const e = acc.get(key(v)) || [0, 1, 0], l = Math.hypot(...e) || 1; n[v * 3] = e[0] / l; n[v * 3 + 1] = e[1] / l; n[v * 3 + 2] = e[2] / l; }
+  return [...n];
+}
 
 /* ---------------- Scène ---------------- */
 export class Node {
@@ -166,7 +199,7 @@ export class Node {
 // matériau : couleur, texture, sans éclairage, transparence
 export function mat(o = {}) {
   return { color: hexRGB(o.color ?? '#ffffff'), tex: o.tex || null, unlit: !!o.unlit, alpha: o.alpha ?? 1, transparent: !!(o.transparent || (o.alpha ?? 1) < 1 || o.additive),
-    additive: !!o.additive, double: !!o.double, depthWrite: o.depthWrite ?? !(o.transparent || o.additive), fog: o.fog ?? true };
+    additive: !!o.additive, double: !!o.double, depthWrite: o.depthWrite ?? !(o.transparent || o.additive), fog: o.fog ?? true, spec: o.spec ?? .06, shin: o.shin ?? 16 };
 }
 export function hexRGB(h) {
   if (Array.isArray(h)) return h;
@@ -177,16 +210,29 @@ export function setColor(m, h) { m.color = hexRGB(h); }
 
 /* ---------------- Rendu ---------------- */
 const VS = `attribute vec3 aPos;attribute vec3 aNor;attribute vec2 aUv;
-uniform mat4 uModel,uVP;uniform mat3 uNM;uniform vec3 uLDir,uLCol,uSky,uGround,uPPos,uPCol,uEye;uniform float uPRange,uUnlit;uniform vec2 uSnap;
-varying vec2 vUv;varying vec3 vLight;varying float vDepth;varying vec3 vUvw;
-void main(){vec4 wp=uModel*vec4(aPos,1.);vec3 n=normalize(uNM*aNor);
-vec3 L=mix(uGround,uSky,n.y*.5+.5)+uLCol*max(dot(n,-uLDir),0.);
-if(uPRange>0.){vec3 pl=uPPos-wp.xyz;float d=length(pl);float at=clamp(1.-d/uPRange,0.,1.);L+=uPCol*max(dot(n,pl/max(d,.001)),0.)*at*at;}
-vLight=mix(L,vec3(1.),uUnlit);vUv=aUv;vDepth=distance(wp.xyz,uEye);vec4 p=uVP*wp;
+uniform mat4 uModel,uVP;uniform mat3 uNM;uniform vec3 uEye;uniform vec2 uSnap;
+varying vec2 vUv;varying vec3 vN;varying vec3 vW;varying float vDepth;varying vec3 vUvw;
+void main(){vec4 wp=uModel*vec4(aPos,1.);vN=uNM*aNor;vW=wp.xyz;vUv=aUv;vDepth=distance(wp.xyz,uEye);vec4 p=uVP*wp;
 if(uSnap.x>0.){p.xy=floor(p.xy/p.w*uSnap+.5)/uSnap*p.w;}vUvw=vec3(aUv*p.w,p.w);gl_Position=p;}`;
-const FS = `precision mediump float;uniform sampler2D uTex;uniform float uUseTex,uAlpha,uFogOn,uAffine;uniform vec3 uColor,uFogCol;uniform vec2 uFog;
-varying vec2 vUv;varying vec3 vLight;varying float vDepth;varying vec3 vUvw;
-void main(){vec2 uv=uAffine>.5?vUvw.xy/vUvw.z:vUv;vec4 t=uUseTex>.5?texture2D(uTex,uv):vec4(1.);vec3 c=uColor*t.rgb*vLight;float a=t.a*uAlpha;if(a<.03)discard;
+const FS = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform sampler2D uTex;uniform float uUseTex,uAlpha,uFogOn,uAffine,uUnlit,uSpec,uShin,uExpo;uniform vec3 uColor,uFogCol,uLDir,uLCol,uSky,uGround,uEye;uniform vec2 uFog;
+uniform vec3 uPPos[6];uniform vec3 uPCol[6];uniform float uPRange[6];
+varying vec2 vUv;varying vec3 vN;varying vec3 vW;varying float vDepth;varying vec3 vUvw;
+void main(){vec2 uv=uAffine>.5?vUvw.xy/vUvw.z:vUv;vec4 t=uUseTex>.5?texture2D(uTex,uv):vec4(1.);float a=t.a*uAlpha;if(a<.03)discard;
+vec3 base=uColor*t.rgb,c;
+if(uUnlit>.5)c=base;else{
+ vec3 n=normalize(vN);if(!gl_FrontFacing)n=-n;vec3 V=normalize(uEye-vW);
+ float d=max(dot(n,-uLDir),0.);vec3 L=mix(uGround,uSky,n.y*.5+.5)+uLCol*d;
+ vec3 S=uLCol*pow(max(dot(n,normalize(V-uLDir)),0.),uShin)*d;
+ for(int i=0;i<6;i++){if(uPRange[i]>0.){vec3 pl=uPPos[i]-vW;float dist=length(pl);vec3 l=pl/max(dist,.001);float at=clamp(1.-dist/uPRange[i],0.,1.);at*=at;float dd=max(dot(n,l),0.);
+  L+=uPCol[i]*dd*at;S+=uPCol[i]*pow(max(dot(n,normalize(l+V)),0.),uShin)*dd*at;}}
+ float rim=pow(1.-max(dot(n,V),0.),3.)*.12;
+ c=base*L+S*uSpec+rim*uSky*base;
+ c*=uExpo;c=c/(1.+c*.18)*1.12;}
 float f=uFogOn*clamp((vDepth-uFog.x)/(uFog.y-uFog.x),0.,1.);gl_FragColor=vec4(mix(c,uFogCol,f),a);}`;
 const PVS = `attribute vec2 aP;varying vec2 vUv;void main(){vUv=aP*.5+.5;gl_Position=vec4(aP,0.,1.);}`;
 const PFS = `precision mediump float;uniform sampler2D uT;uniform float uDither,uLevels,uVHS,uTime;uniform vec2 uRes;varying vec2 vUv;
@@ -216,7 +262,7 @@ export class Renderer {
     this.prog = this.program(VS, FS);
     this.post = this.program(PVS, PFS);
     const p = this.prog; this.u = {};
-    for (const n of ['uModel', 'uVP', 'uNM', 'uLDir', 'uLCol', 'uSky', 'uGround', 'uPPos', 'uPCol', 'uEye', 'uPRange', 'uUnlit', 'uTex', 'uUseTex', 'uAlpha', 'uFogOn', 'uColor', 'uFogCol', 'uFog', 'uSnap', 'uAffine']) this.u[n] = gl.getUniformLocation(p, n);
+    for (const n of ['uModel', 'uVP', 'uNM', 'uLDir', 'uLCol', 'uSky', 'uGround', 'uPPos', 'uPCol', 'uEye', 'uPRange', 'uUnlit', 'uTex', 'uUseTex', 'uAlpha', 'uFogOn', 'uColor', 'uFogCol', 'uFog', 'uSnap', 'uAffine', 'uSpec', 'uShin', 'uExpo']) this.u[n] = gl.getUniformLocation(p, n);
     this.a = { pos: gl.getAttribLocation(p, 'aPos'), nor: gl.getAttribLocation(p, 'aNor'), uv: gl.getAttribLocation(p, 'aUv') };
     this.pu = { uT: gl.getUniformLocation(this.post, 'uT'), uDither: gl.getUniformLocation(this.post, 'uDither'), uLevels: gl.getUniformLocation(this.post, 'uLevels'), uRes: gl.getUniformLocation(this.post, 'uRes'), uVHS: gl.getUniformLocation(this.post, 'uVHS'), uTime: gl.getUniformLocation(this.post, 'uTime') };
     this.quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -287,7 +333,9 @@ export class Renderer {
     gl.uniformMatrix4fv(u.uVP, false, this.vp);
     gl.uniform3fv(u.uLDir, env.ldir); gl.uniform3fv(u.uLCol, env.lcol); gl.uniform3fv(u.uSky, env.sky); gl.uniform3fv(u.uGround, env.ground);
     gl.uniform3fv(u.uEye, cam.eye); gl.uniform3fv(u.uFogCol, env.fogCol); gl.uniform2f(u.uFog, env.fog[0], env.fog[1]);
-    if (env.point) { gl.uniform3fv(u.uPPos, env.point.pos); gl.uniform3fv(u.uPCol, env.point.col); gl.uniform1f(u.uPRange, env.point.range); } else gl.uniform1f(u.uPRange, 0);
+    const pts = env.points || (env.point ? [env.point] : []), PP = new Float32Array(18), PC = new Float32Array(18), PR = new Float32Array(6);
+    pts.slice(0, 6).forEach((q, i) => { PP.set(q.pos, i * 3); PC.set(q.col, i * 3); PR[i] = q.range; });
+    gl.uniform3fv(u.uPPos, PP); gl.uniform3fv(u.uPCol, PC); gl.uniform1fv(u.uPRange, PR); gl.uniform1f(u.uExpo, env.expo || 1);
     gl.uniform1i(u.uTex, 0); gl.activeTexture(gl.TEXTURE0);
     gl.uniform2f(u.uSnap, this.snap ? this.iw / 2 : 0, this.snap ? this.ih / 2 : 0); gl.uniform1f(u.uAffine, this.affine);
     const opaque = [], trans = [];
@@ -330,7 +378,7 @@ export class Renderer {
     const det = m4.normal(w, this.nm);
     gl.uniformMatrix4fv(u.uModel, false, w); gl.uniformMatrix3fv(u.uNM, false, this.nm);
     if (mt.double) gl.disable(gl.CULL_FACE); else { gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); gl.frontFace(det < 0 ? gl.CW : gl.CCW); }
-    gl.uniform3fv(u.uColor, mt.color); gl.uniform1f(u.uAlpha, mt.alpha); gl.uniform1f(u.uUnlit, mt.unlit ? 1 : 0); gl.uniform1f(u.uFogOn, mt.fog ? 1 : 0);
+    gl.uniform3fv(u.uColor, mt.color); gl.uniform1f(u.uAlpha, mt.alpha); gl.uniform1f(u.uSpec, mt.spec); gl.uniform1f(u.uShin, mt.shin); gl.uniform1f(u.uUnlit, mt.unlit ? 1 : 0); gl.uniform1f(u.uFogOn, mt.fog ? 1 : 0);
     if (mt.tex) {
       const t = this.tex(mt.tex); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1f(u.uUseTex, 1);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, this.nearest ? gl.NEAREST : t._mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);

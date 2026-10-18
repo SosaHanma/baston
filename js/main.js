@@ -82,7 +82,7 @@ function openTitle() {
   showScreen('title'); show.dirty = true;
   const ids = CHARS.map(c => c.id).sort(() => Math.random() - .5);
   setShow(0, ids[0], ids[1]); setShow(1, ids[1], ids[0]); show.dirty = false;
-  view.setStage(['videoclub', 'parking', 'wc'][Math.floor(Math.random() * 3)]);
+  view.setStage(['chambre', 'videoclub', 'parking', 'wc'][Math.floor(Math.random() * 4)]);
   $('#titleMenu').hidden = !started; $('#pressStart').hidden = started;
 }
 $('#title').addEventListener('click', e => { if (!started) { audioInit(); started = true; sfx('ok'); openTitle(); } });

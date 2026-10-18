@@ -221,16 +221,22 @@ export function realCatFace(eye = '#9ccf4f') {
 }
 // tissus (en niveaux de gris : la couleur du perso vient du matériau)
 export function cloth(kind) {
-  const c = cvs(128, 64, true), g = c.getContext('2d'), rnd = rng(kind.length * 31 + 7);
-  g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, 128, 64);
-  noise(g, 128, 64, 700, 'rgba(0,0,0,.07)', rnd, 1); noise(g, 128, 64, 300, 'rgba(255,255,255,.12)', rnd, 1);
-  g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(0, 0, 2, 64); g.fillRect(63, 0, 2, 64);
-  if (kind === 'hoodie') { g.strokeStyle = '#ffffff'; g.lineWidth = 2; for (const x of [28, 36]) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 22); g.stroke(); } g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(14, 46, 36, 2); g.fillRect(14, 46, 2, 18); g.fillRect(48, 46, 2, 18); }
-  if (kind === 'tshirt') { g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.arc(32, 26, 9, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(24, 25, 16, 3); g.fillStyle = 'rgba(0,0,0,.15)'; g.fillRect(0, 0, 128, 3); }
-  if (kind === 'jacket') { g.fillStyle = 'rgba(30,30,30,.55)'; g.fillRect(31, 0, 2, 64); g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(20, 0, 8, 10); g.fillRect(36, 0, 8, 10); g.fillRect(12, 40, 12, 2); g.fillRect(40, 40, 12, 2); }
-  if (kind === 'jeans') { g.fillStyle = '#d5dbe6'; g.fillRect(0, 0, 128, 64); for (let i = 0; i < 900; i++) { g.fillStyle = rnd() < .5 ? 'rgba(20,30,60,.12)' : 'rgba(255,255,255,.15)'; g.fillRect(rnd() * 128, rnd() * 64, 2, 1); }
-    g.fillStyle = 'rgba(160,110,40,.6)'; g.fillRect(0, 0, 1, 64); g.fillRect(64, 0, 1, 64); }
-  if (kind === 'jogging') { g.fillStyle = 'rgba(255,255,255,.95)'; g.fillRect(126, 0, 2, 64); g.fillRect(0, 0, 3, 64); g.fillRect(62, 0, 4, 64); }
+  const c = cvs(256, 128, true), g = c.getContext('2d'), rnd = rng(kind.length * 31 + 7);
+  g.fillStyle = '#e4e4e4'; g.fillRect(0, 0, 256, 128);
+  for (let i = 0; i < 2600; i++) { g.fillStyle = rnd() < .5 ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.08)'; g.fillRect(rnd() * 256, rnd() * 128, 1, 1); }
+  // plis du tissu
+  for (let i = 0; i < 14; i++) { const y = rnd() * 128, x = rnd() * 256, gr = g.createLinearGradient(0, y - 4, 0, y + 4); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.5, 'rgba(0,0,0,.1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x - 30, y - 4, 60 + rnd() * 40, 8); }
+  g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(0, 0, 2, 128); g.fillRect(127, 0, 2, 128);
+  if (kind === 'hoodie') { g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2.5; for (const x of [57, 71]) { g.beginPath(); g.moveTo(x, 0); g.quadraticCurveTo(x + 1, 22, x - 1, 40); g.stroke(); g.fillStyle = '#fff'; g.fillRect(x - 2, 38, 4, 6); }
+    g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(30, 92, 68, 3); g.fillRect(30, 92, 3, 36); g.fillRect(95, 92, 3, 36); g.fillStyle = 'rgba(0,0,0,.1)'; g.fillRect(0, 118, 256, 10); }
+  if (kind === 'tshirt') { g.fillStyle = 'rgba(255,255,255,.88)'; g.font = 'bold 15px Impact, sans-serif'; g.textAlign = 'center'; g.fillText('BASTON', 64, 52); g.fillRect(44, 58, 40, 3); g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(0, 0, 256, 4); }
+  if (kind === 'jacket') { g.fillStyle = 'rgba(20,20,20,.6)'; g.fillRect(62, 0, 4, 128); g.fillStyle = 'rgba(200,200,200,.7)'; for (let y = 2; y < 128; y += 5) g.fillRect(63, y, 2, 2);
+    g.fillStyle = 'rgba(0,0,0,.22)'; g.beginPath(); g.moveTo(40, 0); g.lineTo(62, 26); g.lineTo(62, 0); g.fill(); g.beginPath(); g.moveTo(88, 0); g.lineTo(66, 26); g.lineTo(66, 0); g.fill();
+    g.fillRect(24, 80, 26, 3); g.fillRect(78, 80, 26, 3); g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(70, 10, 20, 100); }
+  if (kind === 'jeans') { g.fillStyle = '#d2d9e6'; g.fillRect(0, 0, 256, 128); for (let i = 0; i < 4000; i++) { g.fillStyle = rnd() < .5 ? 'rgba(15,25,60,.13)' : 'rgba(255,255,255,.16)'; g.fillRect(rnd() * 256, rnd() * 128, 2, 1); }
+    for (let i = 0; i < 10; i++) { g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(rnd() * 256, rnd() * 128, 30, 4); }
+    g.fillStyle = 'rgba(190,130,50,.75)'; g.fillRect(0, 0, 1.5, 128); g.fillRect(128, 0, 1.5, 128); g.fillStyle = 'rgba(0,0,0,.15)'; g.fillRect(40, 0, 50, 2); }
+  if (kind === 'jogging') { g.fillStyle = 'rgba(255,255,255,.95)'; g.fillRect(251, 0, 5, 128); g.fillRect(0, 0, 5, 128); g.fillRect(124, 0, 8, 128); }
   return c;
 }
 export function hairTex() {
@@ -350,5 +356,62 @@ export function graffiti() {
   const c = cvs(128, 64), g = c.getContext('2d');
   g.font = 'italic bold 20px Impact, sans-serif'; g.fillStyle = 'rgba(30,30,30,.75)'; g.save(); g.rotate(-.08); g.fillText('TIRE LA CHASSE !', 6, 34); g.restore();
   g.strokeStyle = 'rgba(30,30,30,.6)'; g.lineWidth = 2; g.beginPath(); g.arc(100, 46, 9, 0, Math.PI * 2); g.stroke();
+  return c;
+}
+
+/* ---------- chambre ---------- */
+export function damask() {
+  const c = cvs(256, 256, true), g = c.getContext('2d'), rnd = rng(201);
+  g.fillStyle = '#b8ad97'; g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = 'rgba(120,105,80,.35)'; g.lineWidth = 3;
+  for (let y = 0; y < 256; y += 64) for (let x = (y / 64 % 2) * 32; x < 256 + 32; x += 64) { g.beginPath(); g.ellipse(x, y + 32, 10, 22, 0, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(x, y + 6); g.quadraticCurveTo(x + 18, y + 32, x, y + 58); g.quadraticCurveTo(x - 18, y + 32, x, y + 6); g.stroke(); }
+  noise(g, 256, 256, 3000, 'rgba(0,0,0,.05)', rnd, 2);
+  for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(80,60,30,.05)'; g.fillRect(rnd() * 256, 150 + rnd() * 100, 10 + rnd() * 30, 60); }
+  return c;
+}
+export function carpet() {
+  const c = cvs(256, 256, true), g = c.getContext('2d'), rnd = rng(211);
+  g.fillStyle = '#6e6a63'; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 12000; i++) { const v = rnd(); g.fillStyle = v < .4 ? 'rgba(0,0,0,.14)' : v < .8 ? 'rgba(255,255,255,.08)' : 'rgba(120,90,60,.12)'; g.fillRect(rnd() * 256, rnd() * 256, 1, 1); }
+  for (let i = 0; i < 5; i++) { g.fillStyle = 'rgba(40,30,20,.08)'; g.beginPath(); g.ellipse(rnd() * 256, rnd() * 256, 20 + rnd() * 30, 10 + rnd() * 20, rnd() * 3, 0, Math.PI * 2); g.fill(); }
+  return c;
+}
+export function nightCity() {
+  const c = cvs(256, 256), g = c.getContext('2d'), rnd = rng(221), gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#0a1024'); gr.addColorStop(.6, '#1a2440'); gr.addColorStop(1, '#2a2a3a'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 9; i++) { const x = i * 30 - 10 + rnd() * 10, h = 60 + rnd() * 110, w = 26 + rnd() * 14; g.fillStyle = `rgb(${16 + rnd() * 10 | 0},${18 + rnd() * 10 | 0},${30 + rnd() * 10 | 0})`; g.fillRect(x, 256 - h, w, h);
+    for (let y = 256 - h + 6; y < 250; y += 9) for (let xx = x + 3; xx < x + w - 4; xx += 7) if (rnd() < .35) { g.fillStyle = rnd() < .7 ? 'rgba(255,214,140,.9)' : 'rgba(170,200,255,.8)'; g.fillRect(xx, y, 3, 4); } }
+  g.fillStyle = 'rgba(255,170,90,.8)'; for (let i = 0; i < 6; i++) g.fillRect(rnd() * 256, 238 + rnd() * 12, 2, 2);
+  g.fillStyle = 'rgba(240,240,255,.8)'; for (let i = 0; i < 30; i++) g.fillRect(rnd() * 256, rnd() * 80, 1, 1);
+  return c;
+}
+export function tapestry() {
+  const c = cvs(128, 256), g = c.getContext('2d'), rnd = rng(231);
+  g.fillStyle = '#6a1418'; g.fillRect(0, 0, 128, 256);
+  g.strokeStyle = '#c9a050'; g.lineWidth = 4; g.strokeRect(8, 8, 112, 240); g.lineWidth = 2; g.strokeRect(16, 16, 96, 224);
+  g.fillStyle = '#1e2a4a'; g.fillRect(22, 22, 84, 212);
+  for (let y = 36; y < 230; y += 28) for (let x = 36; x < 100; x += 28) { g.fillStyle = '#9a2a24'; g.beginPath(); g.moveTo(x + 7, y - 9); g.lineTo(x + 16, y); g.lineTo(x + 7, y + 9); g.lineTo(x - 2, y); g.fill(); g.fillStyle = '#d9b260'; g.fillRect(x + 5, y - 2, 4, 4); }
+  noise(g, 128, 256, 2500, 'rgba(0,0,0,.15)', rnd, 1);
+  g.fillStyle = '#d9c7a0'; for (let x = 4; x < 124; x += 4) g.fillRect(x, 250, 2, 6);
+  return c;
+}
+export function woodDark() {
+  const c = cvs(256, 128, true), g = c.getContext('2d'), rnd = rng(241);
+  g.fillStyle = '#4a2f1e'; g.fillRect(0, 0, 256, 128);
+  for (let i = 0; i < 60; i++) { g.strokeStyle = rnd() < .5 ? 'rgba(20,10,5,.25)' : 'rgba(120,80,50,.18)'; g.lineWidth = 1 + rnd() * 2; const y = rnd() * 128; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(80, y + (rnd() - .5) * 10, 170, y + (rnd() - .5) * 10, 256, y + (rnd() - .5) * 6); g.stroke(); }
+  return c;
+}
+export function quilt() {
+  const c = cvs(256, 256, true), g = c.getContext('2d'), rnd = rng(251);
+  g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, 256, 256);
+  for (let y = 0; y < 256; y += 32) { g.fillStyle = 'rgba(0,0,0,.1)'; g.fillRect(0, y, 256, 2); }
+  for (let x = 0; x < 256; x += 32) { g.fillStyle = 'rgba(0,0,0,.07)'; g.fillRect(x, 0, 2, 256); }
+  noise(g, 256, 256, 3000, 'rgba(0,0,0,.05)', rnd, 1);
+  return c;
+}
+export function photoFrame(seed) {
+  const c = cvs(64, 64), g = c.getContext('2d'), rnd = rng(seed);
+  const gr = g.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, `hsl(${rnd() * 360},30%,55%)`); gr.addColorStop(1, `hsl(${rnd() * 360},25%,25%)`); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = 'rgba(30,20,15,.6)'; g.beginPath(); g.arc(24, 30, 8, 0, Math.PI * 2); g.arc(42, 32, 7, 0, Math.PI * 2); g.fill(); g.fillRect(14, 38, 20, 26); g.fillRect(34, 39, 17, 25);
   return c;
 }
