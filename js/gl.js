@@ -170,7 +170,7 @@ export const geo = {
   },
 };
 
-function smoothNormals(P, I) {
+export function smoothNormals(P, I) {
   const n = new Float32Array(P.length), key = i => `${P[i * 3].toFixed(4)},${P[i * 3 + 1].toFixed(4)},${P[i * 3 + 2].toFixed(4)}`, acc = new Map();
   for (let k = 0; k < I.length; k += 3) {
     const a = I[k], b = I[k + 1], c = I[k + 2];
