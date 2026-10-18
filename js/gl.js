@@ -235,7 +235,7 @@ if(uUnlit>.5)c=base;else{
  c*=uExpo;c=c/(1.+c*.18)*1.12;}
 float f=uFogOn*clamp((vDepth-uFog.x)/(uFog.y-uFog.x),0.,1.);gl_FragColor=vec4(mix(c,uFogCol,f),a);}`;
 const PVS = `attribute vec2 aP;varying vec2 vUv;void main(){vUv=aP*.5+.5;gl_Position=vec4(aP,0.,1.);}`;
-const PFS = `precision mediump float;uniform sampler2D uT,uB;uniform float uDither,uLevels,uVHS,uTime,uBloomK,uGrade;uniform vec2 uRes;uniform vec3 uTint;varying vec2 vUv;
+const PFS = `precision mediump float;uniform sampler2D uT,uB;uniform float uDither,uLevels,uVHS,uTime,uBloomK,uGrade,uFilm;uniform vec2 uRes;uniform vec3 uTint;varying vec2 vUv;
 float b2(vec2 a){a=floor(a);return fract(dot(a,vec2(.5,a.y*.75)));}
 float b4(vec2 a){return b2(.5*a)*.25+b2(a);}
 float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
@@ -253,8 +253,14 @@ if(uVHS>0.){
 }else c=texture2D(uT,uv).rgb;
 c+=texture2D(uB,vUv).rgb*uBloomK;
 c=mix(c,c*uTint,uGrade);
+if(uFilm>0.){
+ vec3 sc=clamp(c,0.,1.);sc=sc*sc*(3.-2.*sc);c=mix(c,sc,.35*uFilm);
+ float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,1.-.12*uFilm);
+ c=mix(c,c*vec3(1.04,1.,.93)+vec3(0.,.005,.02)*(1.-l),uFilm*.8);
+ c+=(hash(gl_FragCoord.xy+fract(uTime*7.)*131.)-.5)*.035*uFilm;
+}
 if(uDither>0.){vec2 pp=floor(vUv*uRes);c+=(b4(pp)-.5)*uDither/uLevels;c=floor(c*uLevels+.5)/uLevels;}
-vec2 q=vUv-.5;c*=1.-dot(q,q)*(uVHS>0.?.9:.45);gl_FragColor=vec4(c,1.);}`;
+vec2 q=vUv-.5;c*=1.-dot(q,q)*(uVHS>0.?.9:.45+.35*uFilm);gl_FragColor=vec4(c,1.);}`;
 
 const BRIGHT = `precision mediump float;uniform sampler2D uT;uniform float uTh;varying vec2 vUv;
 void main(){vec3 c=texture2D(uT,vUv).rgb;float l=max(c.r,max(c.g,c.b));gl_FragColor=vec4(c*smoothstep(uTh,uTh+.25,l),1.);}`;
@@ -277,7 +283,7 @@ export class Renderer {
     const p = this.prog; this.u = {};
     for (const n of ['uModel', 'uVP', 'uNM', 'uLDir', 'uLCol', 'uSky', 'uGround', 'uPPos', 'uPCol', 'uEye', 'uPRange', 'uUnlit', 'uTex', 'uUseTex', 'uAlpha', 'uFogOn', 'uColor', 'uFogCol', 'uFog', 'uSnap', 'uAffine', 'uSpec', 'uShin', 'uExpo']) this.u[n] = gl.getUniformLocation(p, n);
     this.a = { pos: gl.getAttribLocation(p, 'aPos'), nor: gl.getAttribLocation(p, 'aNor'), uv: gl.getAttribLocation(p, 'aUv') };
-    this.pu = { uB: gl.getUniformLocation(this.post, 'uB'), uBloomK: gl.getUniformLocation(this.post, 'uBloomK'), uGrade: gl.getUniformLocation(this.post, 'uGrade'), uTint: gl.getUniformLocation(this.post, 'uTint'), uT: gl.getUniformLocation(this.post, 'uT'), uDither: gl.getUniformLocation(this.post, 'uDither'), uLevels: gl.getUniformLocation(this.post, 'uLevels'), uRes: gl.getUniformLocation(this.post, 'uRes'), uVHS: gl.getUniformLocation(this.post, 'uVHS'), uTime: gl.getUniformLocation(this.post, 'uTime') };
+    this.pu = { uB: gl.getUniformLocation(this.post, 'uB'), uBloomK: gl.getUniformLocation(this.post, 'uBloomK'), uGrade: gl.getUniformLocation(this.post, 'uGrade'), uFilm: gl.getUniformLocation(this.post, 'uFilm'), uTint: gl.getUniformLocation(this.post, 'uTint'), uT: gl.getUniformLocation(this.post, 'uT'), uDither: gl.getUniformLocation(this.post, 'uDither'), uLevels: gl.getUniformLocation(this.post, 'uLevels'), uRes: gl.getUniformLocation(this.post, 'uRes'), uVHS: gl.getUniformLocation(this.post, 'uVHS'), uTime: gl.getUniformLocation(this.post, 'uTime') };
     this.quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     this.white = this.texFromPixels(new Uint8Array([255, 255, 255, 255]), 1, 1);
     this.meshCache = new Map(); this.texCache = new WeakMap();
@@ -363,7 +369,7 @@ export class Renderer {
     if (parent) m4.mul(parent, n.local, n.world); else n.world.set(n.local);
     for (const c of n.children) this.updateWorld(c, n.world);
   }
-  collect(n, out) { if (!n.visible) return; if (n.mesh) out.push(n); for (const c of n.children) this.collect(c, out); }
+  collect(n, out, cast = false) { if (!n.visible) return; cast = cast || !!n.castShadow; n._cast = cast; if (n.mesh) out.push(n); for (const c of n.children) this.collect(c, out, cast); }
   render(scene, cam, env, extra) {
     const gl = this.gl, u = this.u, a = this.a;
     this.updateWorld(scene, null);
@@ -388,6 +394,16 @@ export class Renderer {
     trans.sort((x, y) => y._d - x._d + (x.mat.order || 0) - (y.mat.order || 0));
     gl.disable(gl.BLEND); gl.depthMask(true);
     for (const n of opaque) this.draw(n, cam);
+    // ombres portées planes (projetées sur le sol suivant la lumière principale)
+    if (env.shadow) {
+      const L = env.shadow.dir, h = env.shadow.h ?? .011, M = this.shM || (this.shM = new Float32Array(16)), tmp = this.shT || (this.shT = new Float32Array(16));
+      M.fill(0); M[0] = 1; M[4] = -L[0] / L[1]; M[6] = -L[2] / L[1]; M[10] = 1; M[12] = L[0] / L[1] * h; M[13] = h; M[14] = L[2] / L[1] * h; M[15] = 1;
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthFunc(gl.LESS); gl.disable(gl.CULL_FACE);
+      gl.uniform1f(u.uUnlit, 1); gl.uniform1f(u.uUseTex, 0); gl.uniform1f(u.uFogOn, 1); gl.uniform3fv(u.uColor, env.shadow.col || [0, 0, 0]); gl.uniform1f(u.uAlpha, env.shadow.alpha ?? .45);
+      gl.bindTexture(gl.TEXTURE_2D, this.white);
+      for (const n of opaque) { if (!n._cast) continue; m4.mul(M, n.world, tmp); gl.uniformMatrix4fv(u.uModel, false, tmp); this.drawRaw(n); }
+      gl.depthFunc(gl.LEQUAL); gl.disable(gl.BLEND);
+    }
     gl.enable(gl.BLEND);
     for (const n of trans) {
       if (n.mat.additive) gl.blendFunc(gl.SRC_ALPHA, gl.ONE); else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -410,7 +426,7 @@ export class Renderer {
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
     gl.useProgram(this.post);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.bl[0].t); gl.uniform1i(this.pu.uB, 1); gl.activeTexture(gl.TEXTURE0);
-    gl.uniform1f(this.pu.uBloomK, this.bloomK); gl.uniform1f(this.pu.uGrade, this.grade); gl.uniform3fv(this.pu.uTint, this.tint);
+    gl.uniform1f(this.pu.uBloomK, this.bloomK); gl.uniform1f(this.pu.uGrade, this.grade); gl.uniform1f(this.pu.uFilm, this.film ?? 0); gl.uniform3fv(this.pu.uTint, this.tint);
     gl.bindTexture(gl.TEXTURE_2D, this.ft); gl.uniform1i(this.pu.uT, 0);
     const ff = this.upNearest ? gl.NEAREST : gl.LINEAR; gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, ff); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, ff);
     gl.uniform1f(this.pu.uVHS, this.vhs); gl.uniform1f(this.pu.uTime, performance.now() / 1000 % 1000);
@@ -440,6 +456,13 @@ export class Renderer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, this.nearest ? gl.NEAREST : t._mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this.nearest ? gl.NEAREST : gl.LINEAR);
     } else { gl.bindTexture(gl.TEXTURE_2D, this.white); gl.uniform1f(u.uUseTex, 0); }
+    gl.bindBuffer(gl.ARRAY_BUFFER, m.pos); gl.enableVertexAttribArray(a.pos); gl.vertexAttribPointer(a.pos, 3, gl.FLOAT, false, 0, 0);
+    if (a.nor >= 0) { gl.bindBuffer(gl.ARRAY_BUFFER, m.nor); gl.enableVertexAttribArray(a.nor); gl.vertexAttribPointer(a.nor, 3, gl.FLOAT, false, 0, 0); }
+    if (a.uv >= 0) { gl.bindBuffer(gl.ARRAY_BUFFER, m.uv); gl.enableVertexAttribArray(a.uv); gl.vertexAttribPointer(a.uv, 2, gl.FLOAT, false, 0, 0); }
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.idx); gl.drawElements(gl.TRIANGLES, m.n, gl.UNSIGNED_SHORT, 0);
+  }
+  drawRaw(n) {
+    const gl = this.gl, a = this.a, m = this.mesh(n.mesh);
     gl.bindBuffer(gl.ARRAY_BUFFER, m.pos); gl.enableVertexAttribArray(a.pos); gl.vertexAttribPointer(a.pos, 3, gl.FLOAT, false, 0, 0);
     if (a.nor >= 0) { gl.bindBuffer(gl.ARRAY_BUFFER, m.nor); gl.enableVertexAttribArray(a.nor); gl.vertexAttribPointer(a.nor, 3, gl.FLOAT, false, 0, 0); }
     if (a.uv >= 0) { gl.bindBuffer(gl.ARRAY_BUFFER, m.uv); gl.enableVertexAttribArray(a.uv); gl.vertexAttribPointer(a.uv, 2, gl.FLOAT, false, 0, 0); }

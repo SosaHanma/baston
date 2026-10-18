@@ -43,7 +43,8 @@ export class Fight {
 
   start(f, name) {
     f.move = name; f.mt = 0; f.hitDone = false; f.state = 'attack'; f.buf = {};
-    if (!MV[name].power && name !== 'fire') sfx('whoosh');
+    if (!MV[name].power && name !== 'fire') sfx(/kick/.test(name) ? 'whooshBig' : 'whoosh');
+    if (!MV[name].power && name !== 'fire') this.fxq.push({ t: 'swing', f, name });
     if (!MV[name].power && Math.random() < .3) this.events.push({ voice: 'coup', f });
     if (!MV[name].air) f.vx = 0;
     if (MV[name].power) { this.cine = { f, t: 48, max: 48, name: f.power().name }; this.hitstop = 48; sfx('power'); this.fxq.push({ t: 'powerStart', f }); this.events.push({ voice: 'pouvoir', f }); this.pop(f.power().name.toUpperCase(), W / 2, 0, '#ffd23f', 36, true); }
@@ -77,8 +78,9 @@ export class Fight {
     a.meter = Math.min(100, a.meter + 12); o.meter = Math.min(100, o.meter + 6);
     this.burst(h.hx, h.hy, h.big ? '#ffd23f' : '#fff1dc', h.big ? 26 : 14, h.big ? 9 : 6); this.ring(h.hx, h.hy, a.color);
     if (!h.dazzle) this.pop(h.big ? 'MÉGA BOUM !' : WORDS[Math.floor(Math.random() * WORDS.length)], h.hx, h.hy - 30, h.big ? '#ffd23f' : a.color, h.big ? 42 : 30);
-    if (a.combo >= 2) this.pop(`${a.combo} coups !`, a.side ? W - 140 : 140, -360, '#ffd23f', 24, true);
-    this.shake = h.big ? 16 : dmg > 8 ? 8 : 5; this.hitstop = Math.max(this.hitstop, h.big ? 12 : dmg > 8 ? 6 : 4); sfx(h.big ? 'big' : 'hit');
+    this.shake = h.big ? 16 : dmg > 8 ? 9 : 5; this.hitstop = Math.max(this.hitstop, h.big ? 14 : dmg > 8 ? 8 : 5); sfx(h.big ? 'big' : 'hit', Math.min(1, dmg / 12));
+    o.hitDir = dir; o.hitT = 14; o.hitK = h.big ? 1 : Math.min(1, dmg / 10); this.zoom = Math.max(this.zoom || 0, h.big ? 1 : dmg > 8 ? .55 : .3);
+    this.fxq.push({ t: 'sweat', x: o.x, y: o.y - o.h * .9, dir, n: h.big ? 10 : dmg > 8 ? 6 : 3 });
     if (a.cat && Math.random() < .25) sfx('meow');
     if (o.hp <= 0) this.ko(a, o, dir);
   }
@@ -131,7 +133,7 @@ export class Fight {
         f.onGround = true; f.vy = 0;
         if (f.move && (MV[f.move].air || f.move === 'dragon')) f.move = null;
         if (f.state === 'jump' || f.state === 'attack') { f.state = 'idle'; f.vx = 0; }
-        if (f.state === 'ko') { f.vx *= .4; this.shake = Math.max(this.shake, 8); }
+        if (f.state === 'ko') { f.vx *= .4; this.shake = Math.max(this.shake, 12); sfx('fall'); this.fxq.push({ t: 'thud', x: f.x }); } else sfx('land');
         this.dust(f.x);
       }
     }
@@ -139,7 +141,7 @@ export class Fight {
     f.x = clamp(f.x, 46, W - 46);
   }
   update(f, o, inp) {
-    f.t++; if (f.cd > 0) f.cd--; f.flash *= .82; f.inp = inp;
+    f.t++; if (f.cd > 0) f.cd--; f.flash *= .82; f.inp = inp; if (f.hitT > 0) f.hitT--;
     if (f.invul > 0) f.invul--; if (f.dazzle > 0) f.dazzle--;
     for (const k of ['p', 'k', 's', 'x']) if (inp.press[k]) f.buf[k] = this.frame;
     const fresh = k => f.buf[k] != null && this.frame - f.buf[k] <= 7;
@@ -174,7 +176,7 @@ export class Fight {
       else if (fresh('k')) this.start(f, f.crouch ? 'ckick' : 'kick');
       else if (inp.u) { f.vy = -15.5 * Math.sqrt(f.st.jump); f.vx = dir * 4.3 * spd; f.onGround = false; f.state = 'jump'; f.crouch = false; this.dust(f.x); }
       else if (f.crouch) { f.vx = 0; f.state = 'crouch'; }
-      else if (dir) { f.vx = dir * (dir === f.face ? 4 : 3.2) * spd; f.state = 'walk'; }
+      else if (dir) { f.vx = dir * (dir === f.face ? 4 : 3.2) * spd; f.state = 'walk'; if (f.t % 17 === 0) sfx('step'); }
       else { f.vx = 0; f.state = 'idle'; }
     } else {
       if (fresh('p')) this.start(f, 'apunch'); else if (fresh('k')) this.start(f, 'akick');
@@ -260,7 +262,7 @@ export class Fight {
     for (const q of this.pops) { q.life--; if (!q.fixed) q.y -= .6; }
     this.pops = this.pops.filter(q => q.life > 0);
     for (const f of [f1, f2]) f.dhp += (f.hp - f.dhp) * (f.stun > 0 ? .02 : .08);
-    this.shake *= .85; this.flash *= .9;
+    this.shake *= .85; this.flash *= .9; this.zoom = (this.zoom || 0) * .9;
     if (this.phase === 'intro') { this.pt--; if (this.pt === 50) sfx('fight'); if (this.pt <= 0) this.phase = 'fight'; }
     else if (this.phase === 'fight') {
       if (this.time > 0 && this.frame % 60 === 0) {

@@ -22,8 +22,8 @@ export class View {
     this.blobTex = T.blob(); this.ballTex = T.football();
     this.glowMat = mat({ tex: T.glow('255,240,200'), additive: true, unlit: true, fog: false });
     this.proj = new Map(); this.dropN = new Map();
-    for (let i = 0; i < 2; i++) { const s = new Node(geo.disc(.5, 16), mat({ tex: this.blobTex, transparent: true, unlit: true })).rot(-Math.PI / 2, 0, 0); this.shadows.push(s); this.world.add(s); }
-    this.fx = new FX(); this.fxT = 0;
+    for (let i = 0; i < 2; i++) { const s = new Node(geo.disc(.42, 16), mat({ tex: this.blobTex, transparent: true, unlit: true, alpha: .7 })).rot(-Math.PI / 2, 0, 0); this.shadows.push(s); this.world.add(s); }
+    this.fx = new FX(); this.fxT = 0; this.swings = [];
     this.stageId = null; this.resize();
   }
   resize() {
@@ -55,7 +55,7 @@ export class View {
     if (this.models[side]) this.world.remove(this.models[side].root);
     const cc = color && color !== c.color ? { ...c, color } : c;
     const rig = def.kind === 'cats' ? buildCats(def, cc, img) : buildPS2Human(def, cc, img);
-    rig.id = def.id; rig.def = def; rig.photo = !!cc.photo; this.models[side] = rig; this.world.add(rig.root);
+    rig.id = def.id; rig.def = def; rig.photo = !!cc.photo; rig.root.castShadow = true; this.models[side] = rig; this.world.add(rig.root);
     return rig;
   }
   sync(side, f) {
@@ -69,6 +69,11 @@ export class View {
       rig.root.at(x, (f.low * sc - f.y) / 100, 0);
       rig.body.r[1] = (f.face > 0 ? -YAW : YAW) + (f.spin || 0); rig.body.s[0] = f.face * sc;
       poseHuman(rig, f.pose, f);
+      if (f.hitT > 0) { // réaction à l'impact : tête qui part en arrière, buste qui encaisse
+        const k = (f.hitT / 14) ** 2 * (.5 + .5 * (f.hitK || .5));
+        rig.head.r[2] += .55 * k; rig.torso.r[2] += .28 * k; rig.head.r[0] += Math.sin(f.hitT * 1.7) * .12 * k;
+        rig.root.p[0] += f.hitDir * Math.sin(f.hitT * 2.1) * .025 * k;
+      }
     }
     const s = this.shadows[side], hgt = clamp(-f.y / 200, 0, 1), k = (rig.kind === 'cats' ? 1.4 : 1) * (1 - hgt * .5);
     s.at(x, .012, 0); s.scl(k * 1.1, k * .7, 1);
@@ -113,6 +118,9 @@ export class View {
         case 'bighit': F.hit(x, y, z0, e.col || '#ffd23f', true); light(e.x, e.y, .6); break;
         case 'block': F.glow(x, y, z0, '#8fe4ff', .5, 8); F.ring(x, y, z0, '#8fe4ff', .9, 10); F.sparks(x, y, z0, '#bff0ff', 6, .06); break;
         case 'dust': F.dust(x, .03, 0, 6); break;
+        case 'thud': F.dust(x, .03, 0, 16); F.ring(x, .03, 0, '#c8c0b0', 1.6, 18); break;
+        case 'sweat': for (let i = 0; i < e.n; i++) F.spawn({ x: x + (Math.random() - .5) * .1, y: y + (Math.random() - .5) * .1, z: (Math.random() - .5) * .2, vx: e.dir * (.02 + Math.random() * .04), vy: .02 + Math.random() * .03, vz: (Math.random() - .5) * .02, grav: .003, size: .022, life: 26, col: '#e8f4ff', alpha: .9, add: false, cell: 0 }); break;
+        case 'swing': this.swings.push({ f: e.f, name: e.name, t: 0 }); break;
         case 'ko': F.hit(x, y, z0, '#ffffff', true); F.ring(x, y, z0, '#ffd23f', 4, 30); F.flashStar(x, y, z0); light(e.x, e.y, 1.5); break;
         case 'flash': F.flashStar(x, y, .2); light(e.x, e.y, 1.5); break;
         case 'portal': F.portal(x, y, 0, '#ffd23f'); break;
@@ -126,6 +134,12 @@ export class View {
       }
     }
     fight.fxq.length = 0;
+    // traînées des poings et des pieds pendant l'attaque
+    this.swings = this.swings.filter(sw => { const f = sw.f, rig = this.models[f.side]; sw.t++;
+      if (!rig || rig.kind !== 'human' || f.move !== sw.name || sw.t > 22) return false;
+      const node = /kick/.test(sw.name) ? rig.lF.ft : rig.aF.hand, w = node.world;
+      if (sw.t > 2) { F.spawn({ x: w[12], y: w[13], z: w[14], size: .07, size1: .01, life: 9, col: '#ffffff', col1: f.color, alpha: .55 }); F.spawn({ x: w[12], y: w[13], z: w[14], size: .03, life: 6, col: '#ffffff', alpha: .8 }); }
+      return true; });
     // aura pendant la mise en scène d'un pouvoir
     if (fight.cine) { const f = fight.cine.f; F.aura(X3(f.x), Y(f.y), f.h / 100, f.color, 2); if (this.fxT % 2) F.aura(X3(f.x), Y(f.y), f.h / 100, '#ffffff', 1); }
     // traînées des projectiles
@@ -143,7 +157,8 @@ export class View {
     const a = fight.f1, b = fight.f2, x1 = X3(a.x), x2 = X3(b.x);
     const mid = clamp((x1 + x2) / 2, -2.6, 2.6), sep = Math.abs(x1 - x2);
     const dist = clamp(3.1 + sep * .78, 3.7, 7.6), hy = Math.max(-a.y, -b.y) / 100;
-    let e = [mid * .9, 1.25 + dist * .05 + hy * .3, dist], t = [mid, .95 + hy * .35, 0], k = .12;
+    const zp = (fight.zoom || 0) * .55;
+    let e = [mid * .9, 1.25 + dist * .05 + hy * .3, dist - zp], t = [mid, .95 + hy * .35 - zp * .1, 0], k = .12 + zp * .25;
     if (fight.cine) { const f = fight.cine.f, fx = X3(f.x), hh = f.h / 100, fy = -f.y / 100; e = [fx + f.face * 1.4, fy + hh * .8, 2.6 + hh * .3]; t = [fx, fy + hh * .72, 0]; k = .25; }
     if (fight.phase === 'over' || (fight.phase === 'roundEnd' && fight.pt < 150 && fight.winner)) { const f = fight.winner, fx = X3(f.x), hh = f.h / 100; e = [fx + f.face * 1.6, .6 + hh * .6, 3]; t = [fx, hh * .6, 0]; k = .05; }
     this.moveCam(e, t, k, fight.shake);
@@ -168,7 +183,8 @@ export class View {
     const pts = [...base.slice(0, 5), fill];
     if (this.flashLight > .02) { pts[4] = { pos: this.flashPos, col: [this.flashLight * 3, this.flashLight * 2.6, this.flashLight * 2.2], range: 9 }; this.flashLight *= .85; }
     this.fx.update();
-    this.R.render(this.scene, this.cam, { ...e, points: pts }, R => this.fx.draw(R, this.cam.view));
+    const sd = e.shadowDir || [.18, -1, -.32]; const sl = Math.hypot(...sd);
+    this.R.render(this.scene, this.cam, { ...e, points: pts, shadow: { dir: sd.map(v => v / sl), alpha: e.shadowA ?? .42 } }, R => this.fx.draw(R, this.cam.view));
   }
   // coordonnées de jeu -> pixels du HUD (960×540)
   scr(x, y) { const p = this.R.project(this.cam, X3(x), -y / 100, 0); return [p[0] * HW, p[1] * HH, p[2]]; }
@@ -189,15 +205,28 @@ export class View {
     h.lineWidth = 4; h.strokeStyle = ring; h.beginPath(); h.arc(cx, cy, r, 0, TAU); h.stroke();
     h.lineWidth = 2; h.strokeStyle = OUT; h.beginPath(); h.arc(cx, cy, r + 3, 0, TAU); h.stroke();
   }
-  bar(x, y, w, hgt, v, dv, rev) {
-    const h = this.h;
-    h.fillStyle = 'rgba(7,5,15,.85)'; h.fillRect(x - 3, y - 3, w + 6, hgt + 6);
-    h.fillStyle = '#2a1a3a'; h.fillRect(x, y, w, hgt);
-    const fill = (val, c) => { const ww = w * clamp(val, 0, 1); h.fillStyle = c; h.fillRect(rev ? x + w - ww : x, y, ww, hgt); };
-    fill(dv, '#ff3d4f');
-    const g = h.createLinearGradient(0, y, 0, y + hgt); g.addColorStop(0, v > .3 ? '#fffbd0' : '#ffd0a0'); g.addColorStop(.5, v > .3 ? '#ffd23f' : '#ff8a3d'); g.addColorStop(1, v > .3 ? '#d99a12' : '#d9381e');
-    fill(v, g); h.fillStyle = 'rgba(255,255,255,.35)'; h.fillRect(x, y + 2, w, 3);
-    h.strokeStyle = '#c9c3dd'; h.lineWidth = 1.5; h.strokeRect(x - 1.5, y - 1.5, w + 3, hgt + 3);
+  // barre de vie biseautée façon jeu de combat : cadre métal, dégâts récents en rouge, reflet, graduations
+  bar(x, y, w, hgt, v, dv, rev, flash = 0) {
+    const h = this.h, sk = 14;
+    const poly = (x0, w0, pad = 0) => { h.beginPath();
+      if (!rev) { h.moveTo(x0 + sk - pad, y - pad); h.lineTo(x0 + w0 + pad, y - pad); h.lineTo(x0 + w0 - sk + pad, y + hgt + pad); h.lineTo(x0 - pad, y + hgt + pad); }
+      else { h.moveTo(x0 - pad, y - pad); h.lineTo(x0 + w0 - sk + pad, y - pad); h.lineTo(x0 + w0 + pad, y + hgt + pad); h.lineTo(x0 + sk - pad, y + hgt + pad); }
+      h.closePath(); };
+    // cadre
+    const fr = h.createLinearGradient(0, y - 5, 0, y + hgt + 5); fr.addColorStop(0, '#e9e6f2'); fr.addColorStop(.45, '#8a86a0'); fr.addColorStop(.55, '#3c3850'); fr.addColorStop(1, '#a8a4bc');
+    poly(x, w, 5); h.fillStyle = OUT; h.fill(); poly(x, w, 3.5); h.fillStyle = fr; h.fill();
+    poly(x, w, 0); h.fillStyle = '#16101f'; h.fill();
+    h.save(); poly(x, w, 0); h.clip();
+    const fillTo = (val, style) => { const ww = w * clamp(val, 0, 1); h.fillStyle = style; h.fillRect(rev ? x + w - ww : x, y, ww, hgt); };
+    fillTo(dv, flash > 0 ? '#ffffff' : '#c8202e');
+    const low = v < .3, g = h.createLinearGradient(0, y, 0, y + hgt);
+    if (low) { g.addColorStop(0, '#ffcfa0'); g.addColorStop(.5, '#ff6a2a'); g.addColorStop(1, '#a8200e'); }
+    else { g.addColorStop(0, '#fff6c0'); g.addColorStop(.45, '#ffcf3a'); g.addColorStop(.55, '#f0a810'); g.addColorStop(1, '#b86e06'); }
+    fillTo(v, g);
+    if (low && (performance.now() / 120 | 0) % 2) { h.fillStyle = 'rgba(255,60,40,.25)'; h.fillRect(x, y, w, hgt); }
+    h.fillStyle = 'rgba(255,255,255,.4)'; h.fillRect(x, y + 2, w, hgt * .22);
+    h.fillStyle = 'rgba(0,0,0,.28)'; for (let i = 1; i < 10; i++) h.fillRect(x + w * i / 10, y, 1.5, hgt);
+    h.restore();
   }
   drawFight(fight) {
     const h = this.hudBegin();
@@ -250,15 +279,16 @@ export class View {
   }
   hudBars(fight) {
     const h = this.h, L = fight.f1, R = fight.f2;
-    this.bar(100, 28, 330, 22, L.hp / L.hpMax, L.dhp / L.hpMax, false); this.bar(530, 28, 330, 22, R.hp / R.hpMax, R.dhp / R.hpMax, true);
+    this.bar(100, 26, 334, 24, L.hp / L.hpMax, L.dhp / L.hpMax, false, L.hitT > 10 ? 1 : 0); this.bar(526, 26, 334, 24, R.hp / R.hpMax, R.dhp / R.hpMax, true, R.hitT > 10 ? 1 : 0);
     this.portrait(this.models[0], 54, 44, 32, L.color, false); this.portrait(this.models[1], HW - 54, 44, 32, R.color, true);
     this.txt((L.c.name || '').toUpperCase(), 102, 70, 17, '#fff1dc', 'left', 5); this.txt((R.c.name || '').toUpperCase(), HW - 102, 70, 17, '#fff1dc', 'right', 5);
     for (let i = 0; i < fight.opts.rounds; i++) {
       for (const [f, x] of [[L, 410 - i * 20], [R, 550 + i * 20]]) { h.fillStyle = i < f.wins ? '#ffd23f' : '#2a1a3a'; h.strokeStyle = OUT; h.lineWidth = 3; h.save(); h.translate(x, 70); h.rotate(Math.PI / 4); h.fillRect(-6, -6, 12, 12); h.strokeRect(-6, -6, 12, 12); h.restore(); }
     }
-    h.fillStyle = 'rgba(7,5,15,.85)'; h.fillRect(447, 16, 66, 50); h.strokeStyle = '#c9c3dd'; h.lineWidth = 1.5; h.strokeRect(447, 16, 66, 50);
+    { const tg = h.createLinearGradient(0, 12, 0, 70); tg.addColorStop(0, '#2a2440'); tg.addColorStop(1, '#0b0816'); h.fillStyle = OUT; h.beginPath(); h.moveTo(444, 12); h.lineTo(516, 12); h.lineTo(510, 72); h.lineTo(450, 72); h.closePath(); h.fill();
+      h.fillStyle = tg; h.beginPath(); h.moveTo(447, 15); h.lineTo(513, 15); h.lineTo(508, 69); h.lineTo(452, 69); h.closePath(); h.fill(); h.strokeStyle = '#a8a4bc'; h.lineWidth = 1.5; h.stroke(); }
     const tt = fight.opts.time ? String(fight.time).padStart(2, '0') : '∞';
-    this.txt(tt, 480, 42, 30, fight.opts.time && fight.time <= 10 && fight.frame % 30 < 15 ? '#ff4f5e' : '#fff1dc', 'center', 4);
+    this.txt(tt, 480, 43, 34, fight.opts.time && fight.time <= 10 && fight.frame % 30 < 15 ? '#ff4f5e' : '#fff1dc', 'center', 4);
     const meter = (f, x, rev) => {
       const P = f.power(), v = f.meter, ok = v >= P.cost, w = 250;
       h.fillStyle = 'rgba(7,5,15,.85)'; h.fillRect(x - 3, 507, w + 6, 16); h.fillStyle = '#1d1735'; h.fillRect(x, 510, w, 10);
@@ -268,6 +298,16 @@ export class View {
       this.txt(ok ? P.name.toUpperCase() + ' — PRÊT' : P.name.toUpperCase(), rev ? x + w : x, 494, 12, ok ? '#ffd23f' : '#c9c3dd', rev ? 'right' : 'left', 4);
     };
     meter(L, 40, false); meter(R, HW - 290, true);
+    // compteur de combo
+    for (const f of [L, R]) {
+      if (f.combo >= 2) { f._cd = { n: f.combo, t: 70 }; }
+      const cd = f._cd; if (!cd || cd.t <= 0) continue; cd.t--;
+      const x = f.side ? HW - 70 : 70, a = Math.min(1, cd.t / 15), pop = 1 + Math.max(0, (cd.t - 62) / 8) * .5;
+      h.save(); h.globalAlpha = a; h.translate(x, 190); h.scale(pop, pop);
+      const g = h.createLinearGradient(0, -30, 0, 30); g.addColorStop(0, '#ffffff'); g.addColorStop(.5, '#ffd23f'); g.addColorStop(1, '#ff6a1e');
+      this.txt(String(cd.n), 0, 0, 64, g, 'center', 10); this.txt('COUPS', 0, 42, 18, '#fff1dc', 'center', 5);
+      h.restore();
+    }
   }
   center(fight) {
     let t = null, sub = null, k = 1;
